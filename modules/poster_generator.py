@@ -26,6 +26,7 @@ from .config import (
     POSTERS_DIR,
     PAPER_SIZES,
     DEFAULT_THEME,
+    DEFAULT_FONT,
     DEFAULT_FACECOLOR,
     OUTPUT_DPI,
     PREVIEW_DPI,
@@ -47,16 +48,18 @@ class PosterGenerator:
     Handles theme loading, data fetching, rendering, and file output.
     """
 
-    def __init__(self, theme_name: str = DEFAULT_THEME):
+    def __init__(self, theme_name: str = DEFAULT_THEME, font_id: str = DEFAULT_FONT):
         """
-        Initialize poster generator with a specific theme.
+        Initialize poster generator with a specific theme and font.
 
         Args:
             theme_name: Name of theme JSON file (without .json extension)
+            font_id: Font family ID from FONT_OPTIONS
         """
         self.theme_name = theme_name
         self.theme = self.load_theme(theme_name)
-        self.fonts = load_fonts(FONTS_DIR)
+        self.font_id = font_id
+        self.fonts = load_fonts(FONTS_DIR, font_id)
 
     @staticmethod
     def load_theme(theme_name: str) -> dict:

@@ -29,6 +29,8 @@ from modules.config import (
     FONTS_DIR,
     POSTERS_DIR,
     LAYER_ZOOM_THRESHOLDS,
+    FONT_OPTIONS,
+    DEFAULT_FONT,
 )
 
 
@@ -190,6 +192,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Load Google Fonts for font preview
+GOOGLE_FONTS_CSS = """
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime&family=Dancing+Script&family=Playfair+Display&family=Raleway:wght@300&family=Roboto&display=swap" rel="stylesheet">
+"""
+
 # ============================================================================
 # ZOOM PRESETS - From village to metropolis
 # ============================================================================
@@ -225,40 +234,87 @@ if "current_config" not in st.session_state:
 # HELPER FUNCTIONS
 # ============================================================================
 
-def show_theme_preview(theme_dict: dict) -> None:
-    """Display color swatches for theme."""
+def show_theme_color_bar(theme_dict: dict) -> None:
+    """Display 6 color swatches as a horizontal bar for theme preview."""
     colors = [
         ("BG", theme_dict.get("bg", "#fff")),
+        ("Water", theme_dict.get("water", "#adf")),
+        ("Parks", theme_dict.get("parks", "#9c6")),
+        ("Main", theme_dict.get("road_motorway", "#f70")),
+        ("Side", theme_dict.get("road_residential", "#888")),
         ("Text", theme_dict.get("text", "#000")),
-        ("Water", theme_dict.get("water", "#a8d")),
-        ("Parks", theme_dict.get("parks", "#9be")),
-        ("Road", theme_dict.get("road_motorway", "#f77")),
     ]
 
-    html = '<div style="display: flex; gap: 8px; margin: 0.5rem 0;">'
+    html = '''
+    <div style="display: flex; gap: 4px; margin: 0.75rem 0; align-items: center;">
+    '''
     for label, color in colors:
-        html += f"""
+        html += f'''
         <div style="
             display: flex;
             flex-direction: column;
             align-items: center;
-            font-size: 0.75rem;
-            font-weight: 600;
         ">
             <div style="
-                width: 32px;
-                height: 32px;
+                width: 36px;
+                height: 36px;
                 background-color: {color};
-                border: 1px solid #ccc;
-                border-radius: 0.25rem;
-                margin-bottom: 0.25rem;
-            "></div>
-            <span>{label}</span>
+                border: 1px solid rgba(0,0,0,0.2);
+                border-radius: 4px;
+            " title="{label}: {color}"></div>
+            <span style="font-size: 0.65rem; color: #666; margin-top: 2px;">{label}</span>
         </div>
-        """
-    html += "</div>"
+        '''
+    html += '</div>'
 
     st.markdown(html, unsafe_allow_html=True)
+
+
+def font_selector() -> str:
+    """Font selection with ABC preview in each font."""
+
+    # Inject Google Fonts CSS
+    st.markdown(GOOGLE_FONTS_CSS, unsafe_allow_html=True)
+
+    st.markdown("**Schriftart:**")
+
+    # Build font preview HTML
+    font_html = '<div style="display: flex; flex-direction: column; gap: 8px; margin: 0.5rem 0;">'
+
+    font_css_families = {
+        "roboto": "Roboto, sans-serif",
+        "playfair": "'Playfair Display', serif",
+        "courier": "'Courier Prime', monospace",
+        "dancing": "'Dancing Script', cursive",
+        "raleway": "Raleway, sans-serif; font-weight: 300",
+    }
+
+    for font_id, config in FONT_OPTIONS.items():
+        css_family = font_css_families.get(font_id, "sans-serif")
+        font_html += f'''
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="
+                font-family: {css_family};
+                font-size: 1.2rem;
+                min-width: 50px;
+            ">ABC</span>
+            <span style="color: #666; font-size: 0.85rem;">{config["name"]} ({config["style"]})</span>
+        </div>
+        '''
+
+    font_html += '</div>'
+    st.markdown(font_html, unsafe_allow_html=True)
+
+    # Actual selector
+    selected_font = st.selectbox(
+        "Schriftart auswählen",
+        options=list(FONT_OPTIONS.keys()),
+        index=list(FONT_OPTIONS.keys()).index(DEFAULT_FONT),
+        format_func=lambda x: f"{FONT_OPTIONS[x]['name']} - {FONT_OPTIONS[x]['style']}",
+        label_visibility="collapsed",
+    )
+
+    return selected_font
 
 
 def get_theme_dict(theme_name: str) -> dict:
@@ -397,8 +453,13 @@ with col_input:
 
     # Show theme color preview
     theme_dict = get_theme_dict(theme_name)
-    st.caption("Theme-Farben:")
-    show_theme_preview(theme_dict)
+    show_theme_color_bar(theme_dict)
+    if theme_dict.get("description"):
+        st.caption(f"_{theme_dict.get('description')}_")
+
+    # Font Selection
+    st.markdown("")  # Spacer
+    selected_font = font_selector()
 
     st.divider()
 
@@ -634,7 +695,7 @@ with col_input:
         # Generate poster
         with st.spinner("🗺️ Karte wird generiert..."):
             try:
-                generator = PosterGenerator(theme_name=theme_name)
+                generator = PosterGenerator(theme_name=theme_name, font_id=selected_font)
 
                 # Convert slider to axes coords
                 text_x_coord, text_y_coord = slider_to_axes_coords(text_x, text_y)
