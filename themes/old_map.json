@@ -1,0 +1,21 @@
+{
+  "name": "Old Map",
+  "description": "Antique sepia tones with turquoise waters - Helsinki vintage cartography aesthetic",
+  "bg": "#5C3D2E",
+  "text": "#FFFFFF",
+  "gradient_color": "#3A2518",
+  "water": "#5BA4A4",
+  "parks": "#4A3020",
+  "road_motorway": "#D4B896",
+  "road_primary": "#C4A886",
+  "road_secondary": "#B49876",
+  "road_tertiary": "#A48866",
+  "road_residential": "#947856",
+  "road_default": "#A48866",
+  "buildings": "#6A4A3A",
+  "buildings_fill": "#5A3A2A",
+  "paths": "#7A5A4A",
+  "farmland": "#4A3528",
+  "forest": "#3A4030",
+  "meadow": "#4A3A28"
+}

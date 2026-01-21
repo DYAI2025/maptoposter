@@ -1,0 +1,30 @@
+# Streamlit Configuration for CityMaps Poster Generator
+
+[theme]
+# Editorial Cartography color scheme
+primaryColor = "#1a3a52"
+backgroundColor = "#f5f3f0"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#2c2c2c"
+font = "sans serif"
+
+[client]
+# Keyboard shortcuts and formatting
+showErrorDetails = true
+toolbarMode = "minimal"
+
+[logger]
+level = "info"
+
+[server]
+# Server configuration
+port = 8501
+headless = true
+runOnSave = true
+maxUploadSize = 200
+enableCORS = true
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"

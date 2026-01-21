@@ -1,0 +1,21 @@
+{
+  "name": "GTA5",
+  "description": "Video game inspired map - sandy beige urban sprawl with vivid turquoise coast",
+  "bg": "#D8D0C0",
+  "text": "#2A2A2A",
+  "gradient_color": "#D8D0C0",
+  "water": "#4ABCC4",
+  "parks": "#8CBB70",
+  "road_motorway": "#2A2A2A",
+  "road_primary": "#3A3A3A",
+  "road_secondary": "#5A5A5A",
+  "road_tertiary": "#7A7A7A",
+  "road_residential": "#9A9A9A",
+  "road_default": "#7A7A7A",
+  "buildings": "#A8A098",
+  "buildings_fill": "#C8C0B0",
+  "paths": "#B0A898",
+  "farmland": "#E0D8C8",
+  "forest": "#7AAA60",
+  "meadow": "#A8C888"
+}

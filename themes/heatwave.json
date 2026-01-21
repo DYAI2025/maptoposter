@@ -1,0 +1,21 @@
+{
+  "name": "Heatwave",
+  "description": "Blazing orange-yellow gradient with deep petrol blue water - scorching summer intensity",
+  "bg": "#E8A030",
+  "text": "#FFFFFF",
+  "gradient_color": "#D08020",
+  "water": "#1A4A5A",
+  "parks": "#C89028",
+  "road_motorway": "#F8E060",
+  "road_primary": "#F0D850",
+  "road_secondary": "#E8D048",
+  "road_tertiary": "#E0C840",
+  "road_residential": "#D8C038",
+  "road_default": "#E0C840",
+  "buildings": "#D89830",
+  "buildings_fill": "#C88820",
+  "paths": "#E0A038",
+  "farmland": "#F0B040",
+  "forest": "#B88020",
+  "meadow": "#D89828"
+}

@@ -11,5 +11,11 @@
   "road_secondary": "#CC7A30",
   "road_tertiary": "#D9A050",
   "road_residential": "#E8C888",
-  "road_default": "#CC7A30"
+  "road_default": "#CC7A30",
+  "buildings": "#8B7355",
+  "buildings_fill": "#A69080",
+  "paths": "#9B8470",
+  "farmland": "#D4C4A8",
+  "forest": "#8B9B6B",
+  "meadow": "#C4B896"
 }

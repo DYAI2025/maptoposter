@@ -1,0 +1,21 @@
+{
+  "name": "Ying Yang",
+  "description": "Pure black and white contrast - Melbourne minimalist balance of light and dark",
+  "bg": "#FFFFFF",
+  "text": "#FFFFFF",
+  "gradient_color": "#000000",
+  "water": "#000000",
+  "parks": "#E0E0E0",
+  "road_motorway": "#404040",
+  "road_primary": "#505050",
+  "road_secondary": "#606060",
+  "road_tertiary": "#707070",
+  "road_residential": "#808080",
+  "road_default": "#707070",
+  "buildings": "#B0B0B0",
+  "buildings_fill": "#D0D0D0",
+  "paths": "#909090",
+  "farmland": "#F0F0F0",
+  "forest": "#C8C8C8",
+  "meadow": "#E0E0E0"
+}

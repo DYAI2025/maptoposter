@@ -1,0 +1,21 @@
+{
+  "name": "Pirate's Treasure",
+  "description": "Royal blue ocean with golden treasure coast - Los Angeles adventure map aesthetic",
+  "bg": "#1E4B8E",
+  "text": "#FFFFFF",
+  "gradient_color": "#1E4B8E",
+  "water": "#D4A017",
+  "parks": "#2A5A9E",
+  "road_motorway": "#FFFFFF",
+  "road_primary": "#E8E8F0",
+  "road_secondary": "#C8D0E0",
+  "road_tertiary": "#A8B8D0",
+  "road_residential": "#88A0C0",
+  "road_default": "#A8B8D0",
+  "buildings": "#3A6AAE",
+  "buildings_fill": "#2A5A9E",
+  "paths": "#5A8ACE",
+  "farmland": "#1A3A6E",
+  "forest": "#1A4A7E",
+  "meadow": "#2A4A8E"
+}

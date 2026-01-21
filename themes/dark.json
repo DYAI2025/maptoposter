@@ -1,0 +1,21 @@
+{
+  "name": "Dark",
+  "description": "Deep slate blue with warm peach water contrast - sophisticated New York nightscape",
+  "bg": "#1E2A3A",
+  "text": "#FFFFFF",
+  "gradient_color": "#1E2A3A",
+  "water": "#E8C4A8",
+  "parks": "#283848",
+  "road_motorway": "#7A9BBC",
+  "road_primary": "#6A8AAA",
+  "road_secondary": "#5A7A9A",
+  "road_tertiary": "#4A6A8A",
+  "road_residential": "#3A5A7A",
+  "road_default": "#4A6A8A",
+  "buildings": "#3A4A5A",
+  "buildings_fill": "#2A3A4A",
+  "paths": "#4A5A6A",
+  "farmland": "#252F3A",
+  "forest": "#2A3A45",
+  "meadow": "#283540"
+}
