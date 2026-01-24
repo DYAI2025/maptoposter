@@ -200,6 +200,165 @@ def create_horizon_glow(ax, color='#0a1530', intensity=0.25):
     ax.imshow(gradient, extent=[xlim[0], xlim[1], y_start, ylim[1]], aspect='auto', cmap=cmap, zorder=12, origin='lower')
 
 
+# ============================================================================
+# HOLONIGHT HELPER FUNCTIONS
+# ============================================================================
+
+def create_holonight_glow(ax, lines, color, inner_color, base_width, num_layers=10, max_alpha=1.0, glow_falloff=1.5, zorder=5):
+    """Create intense neon glow effect for holonight mode with white-hot center."""
+    if not lines:
+        return
+
+    # Outer glow layers - wide and soft
+    for i in range(num_layers, 0, -1):
+        layer_width = base_width * (1 + (i - 1) ** glow_falloff * 0.6)
+        t = (num_layers - i) / num_layers
+        layer_alpha = max_alpha * np.exp(-4 * (1 - t) ** 2) * 0.35
+        lc = LineCollection(lines, linewidths=layer_width, colors=color, alpha=layer_alpha, zorder=zorder)
+        ax.add_collection(lc)
+
+    # Mid-bright layer
+    lc_mid = LineCollection(lines, linewidths=base_width * 0.9, colors=color, alpha=max_alpha * 0.75, zorder=zorder + 1)
+    ax.add_collection(lc_mid)
+
+    # Bright core
+    lc_bright = LineCollection(lines, linewidths=base_width * 0.5, colors=inner_color, alpha=max_alpha * 0.85, zorder=zorder + 2)
+    ax.add_collection(lc_bright)
+
+    # White hot center
+    lc_core = LineCollection(lines, linewidths=base_width * 0.15, colors='#FFFFFF', alpha=max_alpha, zorder=zorder + 3)
+    ax.add_collection(lc_core)
+
+
+def get_holonight_road_lines(G_proj):
+    """Separate roads by hierarchy for holonight mode."""
+    highways = {'major': [], 'secondary': [], 'minor': []}
+
+    for u, v, data in G_proj.edges(data=True):
+        highway = data.get('highway', 'residential')
+        if isinstance(highway, list):
+            highway = highway[0]
+
+        if 'geometry' in data:
+            coords = list(data['geometry'].coords)
+            segments = [[coords[i], coords[i + 1]] for i in range(len(coords) - 1)]
+        else:
+            x1, y1 = G_proj.nodes[u]['x'], G_proj.nodes[u]['y']
+            x2, y2 = G_proj.nodes[v]['x'], G_proj.nodes[v]['y']
+            segments = [[(x1, y1), (x2, y2)]]
+
+        if highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link']:
+            highways['major'].extend(segments)
+        elif highway in ['secondary', 'secondary_link', 'tertiary', 'tertiary_link']:
+            highways['secondary'].extend(segments)
+        else:
+            highways['minor'].extend(segments)
+
+    return highways
+
+
+def add_intersection_glows(ax, G_proj, theme, zorder=9):
+    """Add glowing points at major intersections."""
+    if not theme.get('render_intersections', False):
+        return
+
+    glow_color = theme.get('intersection_glow', '#00FFFF')
+    inner_color = theme.get('intersection_glow_inner', '#FFFFFF')
+    base_size = theme.get('intersection_size', 2.5)
+
+    # Find nodes with high degree (intersections)
+    nodes_x, nodes_y, sizes = [], [], []
+
+    for node, degree in G_proj.degree():
+        if degree >= 3:  # 3+ connections = intersection
+            node_data = G_proj.nodes[node]
+            nodes_x.append(node_data['x'])
+            nodes_y.append(node_data['y'])
+            # Size based on degree
+            size_factor = min(degree / 4, 2.5)
+            sizes.append(base_size * size_factor)
+
+    if not nodes_x:
+        return
+
+    # Outer glow
+    ax.scatter(nodes_x, nodes_y, c=glow_color, s=[s * 40 for s in sizes], alpha=0.15, zorder=zorder, marker='o')
+    ax.scatter(nodes_x, nodes_y, c=glow_color, s=[s * 15 for s in sizes], alpha=0.35, zorder=zorder + 1, marker='o')
+    # Inner glow
+    ax.scatter(nodes_x, nodes_y, c=inner_color, s=[s * 5 for s in sizes], alpha=0.6, zorder=zorder + 2, marker='o')
+    # Core
+    ax.scatter(nodes_x, nodes_y, c='#FFFFFF', s=sizes, alpha=0.9, zorder=zorder + 3, marker='o')
+
+
+def create_radial_vignette(ax, center_x, center_y, radius, intensity=0.3):
+    """Create subtle radial vignette - darker at edges."""
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+
+    x = np.linspace(xlim[0], xlim[1], 150)
+    y = np.linspace(ylim[0], ylim[1], 150)
+    X, Y = np.meshgrid(x, y)
+
+    dist = np.sqrt((X - center_x)**2 + (Y - center_y)**2)
+    dist_norm = dist / radius
+
+    vignette = 1 - np.clip(dist_norm ** 2 * intensity, 0, 0.6)
+    dark_overlay = np.zeros((*vignette.shape, 4))
+    dark_overlay[:, :, 3] = (1 - vignette) * 0.5
+
+    ax.imshow(dark_overlay, extent=[xlim[0], xlim[1], ylim[0], ylim[1]], aspect='auto', zorder=15, origin='lower')
+
+
+# ============================================================================
+# KANDINCITY HELPER FUNCTIONS
+# ============================================================================
+
+def get_block_color(theme, seed_value):
+    """Get a weighted random color for a building block based on theme palette."""
+    block_colors = theme.get('block_colors', ['#E8642C', '#3C4654', '#8B8860'])
+    weights = theme.get('block_color_weights', None)
+
+    if weights and len(weights) == len(block_colors):
+        # Use seeded random for consistent coloring
+        rng = random.Random(seed_value)
+        return rng.choices(block_colors, weights=weights, k=1)[0]
+    else:
+        rng = random.Random(seed_value)
+        return rng.choice(block_colors)
+
+
+def render_kandinsky_buildings(ax, buildings_gdf, theme, zorder=3):
+    """Render buildings as Kandinsky-style colored blocks."""
+    if buildings_gdf is None or buildings_gdf.empty:
+        return
+
+    buildings_polys = buildings_gdf[buildings_gdf.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+    if buildings_polys.empty:
+        return
+
+    edge_color = theme.get('buildings_edge', '#1A1A1A')
+    edge_width = theme.get('building_edge_width', 0.3)
+
+    for idx, row in buildings_polys.iterrows():
+        try:
+            # Use geometry hash as seed for consistent color
+            geom_hash = hash(row.geometry.wkt) % 1000000
+            fill_color = get_block_color(theme, geom_hash)
+
+            from geopandas import GeoSeries
+            gs = GeoSeries([row.geometry], crs=buildings_polys.crs)
+            gs.plot(
+                ax=ax,
+                facecolor=fill_color,
+                edgecolor=edge_color,
+                linewidth=edge_width,
+                alpha=1.0,
+                zorder=zorder
+            )
+        except Exception:
+            continue
+
+
 class PosterGenerator:
     """
     Main class for generating map posters.
@@ -763,14 +922,32 @@ class PosterGenerator:
         # Project graph to metric CRS
         G_proj = ox.project_graph(G)
 
-        # Check if this is Night Lights mode
-        is_night_lights = self.theme.get("mode") == "night_lights"
+        # Check for special rendering modes
+        render_mode = self.theme.get("mode", "standard")
 
-        if is_night_lights:
+        if render_mode == "night_lights":
             # ================================================================
             # NIGHT LIGHTS RENDERING MODE
             # ================================================================
             return self._render_night_lights(
+                G_proj, water, parks, buildings, lat, lon,
+                city_name, country_name, paper_size, distance, dpi, text_position
+            )
+
+        if render_mode == "holonight":
+            # ================================================================
+            # HOLONIGHT RENDERING MODE
+            # ================================================================
+            return self._render_holonight(
+                G_proj, water, parks, buildings, lat, lon,
+                city_name, country_name, paper_size, distance, dpi, text_position
+            )
+
+        if render_mode == "kandincity":
+            # ================================================================
+            # KANDINCITY RENDERING MODE
+            # ================================================================
+            return self._render_kandincity(
                 G_proj, water, parks, buildings, lat, lon,
                 city_name, country_name, paper_size, distance, dpi, text_position
             )
@@ -1200,6 +1377,283 @@ class PosterGenerator:
         )
 
         print("✓ Night Lights map generated successfully!")
+        return fig
+
+    def _render_holonight(
+        self,
+        G_proj,
+        water,
+        parks,
+        buildings,
+        lat: float,
+        lon: float,
+        city_name: str,
+        country_name: str,
+        paper_size: str,
+        distance: int,
+        dpi: int,
+        text_position: dict,
+    ) -> Figure:
+        """
+        Render map in Holonight mode - cyan neon glow on pure black.
+
+        Creates a cyberpunk/holographic effect with:
+        - Intense cyan neon glow on roads
+        - Pure black background for maximum contrast
+        - Glowing intersection points
+        - White-hot line centers
+        """
+        print("Rendering in Holonight mode...")
+
+        fig_width, fig_height = PAPER_SIZES[paper_size]
+        bg_color = self.theme.get("bg", "#000008")
+
+        fig, ax = plt.subplots(
+            figsize=(fig_width, fig_height),
+            facecolor=bg_color,
+            dpi=dpi or PREVIEW_DPI,
+        )
+        ax.set_facecolor(bg_color)
+        ax.set_position((0.0, 0.0, 1.0, 1.0))
+        ax.axis("off")
+
+        # Set view limits
+        nodes = ox.graph_to_gdfs(G_proj, edges=False)
+        xmin, xmax = nodes['x'].min(), nodes['x'].max()
+        ymin, ymax = nodes['y'].min(), nodes['y'].max()
+        ax.set_xlim(xmin, xmax)
+        ax.set_ylim(ymin, ymax)
+        ax.set_aspect('equal')
+
+        center_x = (xmin + xmax) / 2
+        center_y = (ymin + ymax) / 2
+        max_dist = max(xmax - xmin, ymax - ymin) / 2
+
+        # Render water as very dark with subtle cyan edge
+        if water is not None and not water.empty:
+            water_polys = water[water.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+            if not water_polys.empty:
+                try:
+                    water_polys = ox.projection.project_gdf(water_polys)
+                except Exception:
+                    water_polys = water_polys.to_crs(G_proj.graph["crs"])
+                water_color = self.theme.get("water", "#021020")
+                water_edge = self.theme.get("water_edge", "#004060")
+                water_polys.plot(ax=ax, facecolor=water_color, edgecolor=water_edge, linewidth=0.3, alpha=1.0, zorder=1)
+
+        # Render parks as very dark
+        if parks is not None and not parks.empty:
+            parks_polys = parks[parks.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+            if not parks_polys.empty:
+                try:
+                    parks_polys = ox.projection.project_gdf(parks_polys)
+                except Exception:
+                    parks_polys = parks_polys.to_crs(G_proj.graph["crs"])
+                parks_color = self.theme.get("parks", "#010408")
+                parks_polys.plot(ax=ax, facecolor=parks_color, edgecolor='none', alpha=0.95, zorder=1)
+
+        # Render buildings as dark silhouettes with subtle edge
+        if buildings is not None and not buildings.empty:
+            buildings_polys = buildings[buildings.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+            if not buildings_polys.empty:
+                try:
+                    buildings_polys = ox.projection.project_gdf(buildings_polys)
+                except Exception:
+                    buildings_polys = buildings_polys.to_crs(G_proj.graph["crs"])
+                fill_color = self.theme.get("buildings_fill", "#040812")
+                edge_color = self.theme.get("buildings_edge", "#0A1530")
+                buildings_polys.plot(ax=ax, facecolor=fill_color, edgecolor=edge_color, linewidth=0.05, alpha=0.98, zorder=2)
+
+        # Get road lines
+        highways = get_holonight_road_lines(G_proj)
+
+        # Cyan color palette
+        colors = {
+            'major': self.theme.get("road_motorway", "#00FFFF"),
+            'secondary': self.theme.get("road_secondary", "#00D4FF"),
+            'minor': self.theme.get("road_residential", "#00A8E8")
+        }
+        inner_colors = {
+            'major': self.theme.get("road_motorway_inner", "#FFFFFF"),
+            'secondary': self.theme.get("road_secondary_inner", "#E0FFFF"),
+            'minor': self.theme.get("road_residential_inner", "#C0FFFF")
+        }
+
+        glow_layers = self.theme.get("glow_layers", 10)
+        glow_intensity = self.theme.get("glow_intensity", 1.0)
+        glow_falloff = self.theme.get("glow_falloff", 1.5)
+
+        # Render roads with intense neon glow
+        print("  Rendering neon glow effects...")
+        create_holonight_glow(ax, highways['minor'], colors['minor'], inner_colors['minor'],
+                              base_width=0.3, num_layers=6, max_alpha=0.6, glow_falloff=glow_falloff, zorder=3)
+        create_holonight_glow(ax, highways['secondary'], colors['secondary'], inner_colors['secondary'],
+                              base_width=0.5, num_layers=8, max_alpha=0.8, glow_falloff=glow_falloff, zorder=4)
+        create_holonight_glow(ax, highways['major'], colors['major'], inner_colors['major'],
+                              base_width=0.9, num_layers=glow_layers, max_alpha=glow_intensity, glow_falloff=glow_falloff, zorder=5)
+
+        # Add intersection glows
+        print("  Adding intersection glows...")
+        add_intersection_glows(ax, G_proj, self.theme, zorder=9)
+
+        # Add subtle radial vignette
+        vignette_intensity = self.theme.get("vignette_intensity", 0.3)
+        if vignette_intensity > 0:
+            print("  Adding vignette effect...")
+            create_radial_vignette(ax, center_x, center_y, max_dist, intensity=vignette_intensity)
+
+        # Apply text overlay
+        apply_text_overlay(
+            ax,
+            city_name,
+            country_name,
+            lat,
+            lon,
+            self.theme,
+            fonts=self.fonts,
+            text_config=text_position,
+            paper_size=paper_size,
+            distance_m=distance,
+        )
+
+        print("✓ Holonight map generated successfully!")
+        return fig
+
+    def _render_kandincity(
+        self,
+        G_proj,
+        water,
+        parks,
+        buildings,
+        lat: float,
+        lon: float,
+        city_name: str,
+        country_name: str,
+        paper_size: str,
+        distance: int,
+        dpi: int,
+        text_position: dict,
+    ) -> Figure:
+        """
+        Render map in Kandincity mode - Kandinsky-inspired abstract geometric style.
+
+        Creates an abstract art effect with:
+        - Colorful building blocks (orange, grey, olive tones)
+        - Thin dark road lines
+        - Cream/beige background
+        - Bauhaus aesthetic
+        """
+        print("Rendering in Kandincity mode...")
+
+        fig_width, fig_height = PAPER_SIZES[paper_size]
+        bg_color = self.theme.get("bg", "#E8DCC8")
+
+        fig, ax = plt.subplots(
+            figsize=(fig_width, fig_height),
+            facecolor=bg_color,
+            dpi=dpi or PREVIEW_DPI,
+        )
+        ax.set_facecolor(bg_color)
+        ax.set_position((0.0, 0.0, 1.0, 1.0))
+        ax.axis("off")
+
+        # Get crop limits to maintain aspect ratio
+        crop_xlim, crop_ylim = self.get_crop_limits(G_proj, fig)
+        ax.set_xlim(crop_xlim)
+        ax.set_ylim(crop_ylim)
+        ax.set_aspect('equal')
+
+        # Render water as background color (blends in)
+        if water is not None and not water.empty:
+            water_polys = water[water.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+            if not water_polys.empty:
+                try:
+                    water_polys = ox.projection.project_gdf(water_polys)
+                except Exception:
+                    water_polys = water_polys.to_crs(G_proj.graph["crs"])
+                water_color = self.theme.get("water", bg_color)
+                water_polys.plot(ax=ax, facecolor=water_color, edgecolor='none', alpha=1.0, zorder=1)
+
+        # Render parks with muted green
+        if parks is not None and not parks.empty:
+            parks_polys = parks[parks.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+            if not parks_polys.empty:
+                try:
+                    parks_polys = ox.projection.project_gdf(parks_polys)
+                except Exception:
+                    parks_polys = parks_polys.to_crs(G_proj.graph["crs"])
+                parks_color = self.theme.get("parks", "#8B9860")
+                parks_polys.plot(ax=ax, facecolor=parks_color, edgecolor='none', alpha=0.9, zorder=2)
+
+        # Render buildings as colorful Kandinsky-style blocks
+        if buildings is not None and not buildings.empty:
+            print("  Rendering Kandinsky-style building blocks...")
+            try:
+                buildings_proj = ox.projection.project_gdf(buildings)
+            except Exception:
+                buildings_proj = buildings.to_crs(G_proj.graph["crs"])
+            render_kandinsky_buildings(ax, buildings_proj, self.theme, zorder=3)
+
+        # Render roads as thin dark lines
+        print("  Rendering road network...")
+        edge_colors = []
+        edge_widths = []
+
+        for u, v, data in G_proj.edges(data=True):
+            highway = data.get("highway", "unclassified")
+            if isinstance(highway, list):
+                highway = highway[0] if highway else "unclassified"
+
+            # Get color based on road type
+            if highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link']:
+                color = self.theme.get("road_motorway", "#1A1A1A")
+                width = self.theme.get("road_width_motorway", 1.2)
+            elif highway in ['primary', 'primary_link']:
+                color = self.theme.get("road_primary", "#2A2A2A")
+                width = self.theme.get("road_width_primary", 1.0)
+            elif highway in ['secondary', 'secondary_link']:
+                color = self.theme.get("road_secondary", "#3A3A3A")
+                width = self.theme.get("road_width_secondary", 0.8)
+            elif highway in ['tertiary', 'tertiary_link']:
+                color = self.theme.get("road_tertiary", "#4A4A4A")
+                width = self.theme.get("road_width_tertiary", 0.6)
+            elif highway in ['residential', 'living_street']:
+                color = self.theme.get("road_residential", "#5A5A5A")
+                width = self.theme.get("road_width_residential", 0.4)
+            else:
+                color = self.theme.get("road_default", "#6A6A6A")
+                width = 0.3
+
+            edge_colors.append(color)
+            edge_widths.append(width)
+
+        # Plot street network
+        ox.plot_graph(
+            G_proj,
+            ax=ax,
+            bgcolor=bg_color,
+            node_size=0,
+            edge_color=edge_colors,
+            edge_linewidth=edge_widths,
+            show=False,
+            close=False,
+        )
+
+        # Apply text overlay
+        apply_text_overlay(
+            ax,
+            city_name,
+            country_name,
+            lat,
+            lon,
+            self.theme,
+            fonts=self.fonts,
+            text_config=text_position,
+            paper_size=paper_size,
+            distance_m=distance,
+        )
+
+        print("✓ Kandincity map generated successfully!")
         return fig
 
     def save_poster(

@@ -52,8 +52,8 @@ DEFAULT_PAPER_SIZE = "A4"
 # Default DPI for preview
 PREVIEW_DPI = 150
 
-# Default DPI for final output (450 for high-quality village prints)
-OUTPUT_DPI = 450
+# Default DPI for final output (600 for highest quality prints)
+OUTPUT_DPI = 600
 
 # Default map radius in meters
 DEFAULT_DISTANCE = 8000  # 8 km
