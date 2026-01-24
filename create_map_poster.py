@@ -9,6 +9,9 @@ import sys
 import argparse
 from pathlib import Path
 
+# Setup matplotlib backend before importing poster generator
+import fix_matplotlib_backend
+
 # Import modular components
 from modules.geocoding import geocode_address
 from modules.poster_generator import PosterGenerator
