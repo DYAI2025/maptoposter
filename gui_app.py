@@ -14,8 +14,10 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-import streamlit as st
+# Setup matplotlib backend before importing pyplot
+import fix_matplotlib_backend
 import matplotlib.pyplot as plt
+import streamlit as st
 from PIL import Image
 
 # Import modules
@@ -46,7 +48,7 @@ st.set_page_config(
 )
 
 # Editorial Cartography Aesthetic - CSS Styling
-st.markdown(
+st.html(
     """
     <style>
     /* Overall page styling */
@@ -188,8 +190,7 @@ st.markdown(
         margin-right: 0.5rem;
     }
     </style>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 # Load Google Fonts for font preview
@@ -267,14 +268,14 @@ def show_theme_color_bar(theme_dict: dict) -> None:
         '''
     html += '</div>'
 
-    st.markdown(html, unsafe_allow_html=True)
+    st.html(html)
 
 
 def font_selector() -> str:
     """Font selection with ABC preview in each font."""
 
     # Inject Google Fonts CSS
-    st.markdown(GOOGLE_FONTS_CSS, unsafe_allow_html=True)
+    st.html(GOOGLE_FONTS_CSS)
 
     st.markdown("**Schriftart:**")
 
@@ -303,7 +304,7 @@ def font_selector() -> str:
         '''
 
     font_html += '</div>'
-    st.markdown(font_html, unsafe_allow_html=True)
+    st.html(font_html)
 
     # Actual selector
     selected_font = st.selectbox(
@@ -360,15 +361,30 @@ def add_to_history(config: dict, fig) -> None:
 
 def get_layer_defaults(distance_m: int) -> dict:
     """Get default layer visibility based on zoom level."""
+    # All available layers
+    all_layers = {
+        "buildings": False,
+        "paths": False,
+        "landscape": False,
+        "waterways": False,
+        "railways": False,
+        "hedges": False,
+        "leisure": False,
+        "amenities": False,
+    }
+
     if distance_m <= LAYER_ZOOM_THRESHOLDS["all_on"]:
-        # Village zoom: all layers on
-        return {"buildings": True, "paths": True, "landscape": True}
+        # Village zoom (<=2km): all layers on
+        return {k: True for k in all_layers}
     elif distance_m <= LAYER_ZOOM_THRESHOLDS["buildings_only"]:
-        # Town zoom: only buildings
-        return {"buildings": True, "paths": False, "landscape": False}
+        # Town zoom (<=8km): buildings, waterways, railways
+        all_layers["buildings"] = True
+        all_layers["waterways"] = True
+        all_layers["railways"] = True
+        return all_layers
     else:
-        # City zoom: no detail layers
-        return {"buildings": False, "paths": False, "landscape": False}
+        # City zoom (>8km): no detail layers
+        return all_layers
 
 
 def parse_coordinates(coord_string: str) -> tuple[float, float] | None:
@@ -405,7 +421,7 @@ def parse_coordinates(coord_string: str) -> tuple[float, float] | None:
 # PAGE HEADER
 # ============================================================================
 
-st.markdown(
+st.html(
     """
     <div style="text-align: center; margin-bottom: 2rem;">
         <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">🗺️ CityMaps</h1>
@@ -416,8 +432,7 @@ st.markdown(
             Von der Metropole bis zum kleinsten Dorf – immer hochauflösend
         </p>
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 # ============================================================================
@@ -488,13 +503,12 @@ with col_input:
 
     else:
         # Direct coordinates mode (NEW!)
-        st.markdown(
+        st.html(
             """
             <a href="https://www.google.com/maps" target="_blank" class="gmaps-link">
                 🌍 Google Maps öffnen
             </a>
-            """,
-            unsafe_allow_html=True,
+            """
         )
 
         with st.expander("📖 Anleitung: Koordinaten aus Google Maps", expanded=False):
@@ -589,31 +603,65 @@ with col_input:
 
     st.caption("💡 Voreinstellungen basieren auf der gewählten Zoom-Stufe")
 
-    col_layer1, col_layer2 = st.columns(2)
+    col_layer1, col_layer2, col_layer3 = st.columns(3)
 
     with col_layer1:
         show_buildings = st.checkbox(
             "🏠 Gebäude",
-            value=layer_defaults["buildings"],
+            value=layer_defaults.get("buildings", False),
             help="Gebäudeumrisse anzeigen",
         )
         show_paths = st.checkbox(
-            "🚶 Feldwege / Pfade",
-            value=layer_defaults["paths"],
+            "🚶 Wege / Pfade",
+            value=layer_defaults.get("paths", False),
             help="Wanderwege, Radwege, Feldwege",
         )
-
-    with col_layer2:
         show_landscape = st.checkbox(
             "🌾 Landschaft",
-            value=layer_defaults["landscape"],
+            value=layer_defaults.get("landscape", False),
             help="Felder, Wiesen, Wälder",
         )
 
-    # Warning for large zoom with detail layers
-    if distance_m > 4000 and (show_buildings or show_paths or show_landscape):
+    with col_layer2:
+        show_waterways = st.checkbox(
+            "💧 Bäche/Flüsse",
+            value=layer_defaults.get("waterways", False),
+            help="Bäche, Flüsse, Kanäle, Gräben",
+        )
+        show_railways = st.checkbox(
+            "🚂 Bahngleise",
+            value=layer_defaults.get("railways", False),
+            help="Schienen, Straßenbahn",
+        )
+        show_hedges = st.checkbox(
+            "🌿 Hecken/Zäune",
+            value=layer_defaults.get("hedges", False),
+            help="Hecken, Mauern, Zäune",
+        )
+
+    with col_layer3:
+        show_leisure = st.checkbox(
+            "⚽ Freizeit",
+            value=layer_defaults.get("leisure", False),
+            help="Sportplätze, Spielplätze, Gärten",
+        )
+        show_amenities = st.checkbox(
+            "⛪ Einrichtungen",
+            value=layer_defaults.get("amenities", False),
+            help="Kirchen, Schulen, Friedhöfe",
+        )
+
+    # Count active layers
+    active_layers = sum([
+        show_buildings, show_paths, show_landscape,
+        show_waterways, show_railways, show_hedges,
+        show_leisure, show_amenities
+    ])
+
+    # Warning for large zoom with many detail layers
+    if distance_m > 4000 and active_layers > 2:
         st.warning(
-            "⚠️ Detail-Layer bei großem Maßstab können die Generierung verlangsamen.",
+            "⚠️ Viele Detail-Layer bei großem Maßstab können die Generierung verlangsamen.",
             icon="⏳"
         )
 
@@ -713,6 +761,11 @@ with col_input:
                     "buildings": show_buildings,
                     "paths": show_paths,
                     "landscape": show_landscape,
+                    "waterways": show_waterways,
+                    "railways": show_railways,
+                    "hedges": show_hedges,
+                    "leisure": show_leisure,
+                    "amenities": show_amenities,
                 }
 
                 fig = generator.generate_poster(
@@ -753,10 +806,17 @@ with col_preview:
     st.markdown("### 🖼️ Vorschau")
 
     if st.session_state.generated_figure is not None:
-        # Display figure
-        st.markdown('<div class="preview-frame">', unsafe_allow_html=True)
-        st.pyplot(st.session_state.generated_figure, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        # Display figure using a temporary buffer to avoid display issues
+        import io
+        buf = io.BytesIO()
+        st.session_state.generated_figure.savefig(buf, format="png", bbox_inches='tight', dpi=150)
+        buf.seek(0)
+
+        from PIL import Image
+        img = Image.open(buf)
+
+        st.image(img, caption="", use_container_width=True)
+        buf.close()
 
         # Show current config
         if st.session_state.current_config:

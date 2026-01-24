@@ -12,13 +12,24 @@ from typing import cast
 from datetime import datetime
 
 import numpy as np
+
+# Setup matplotlib backend before importing pyplot
+import sys
+import os
+# Add the project root to the path to import the fix
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+import fix_matplotlib_backend
+
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from matplotlib.figure import Figure
+from matplotlib.collections import LineCollection
 import osmnx as ox
 from networkx import MultiDiGraph
 from geopandas import GeoDataFrame
 from tqdm import tqdm
+import random
 
 from .config import (
     THEMES_DIR,
@@ -39,6 +50,154 @@ from .config import (
 )
 from .geocoding import cache_get, cache_set, CacheError
 from .text_positioning import apply_text_overlay, load_fonts
+
+
+# ============================================================================
+# NIGHT LIGHTS HELPER FUNCTIONS
+# ============================================================================
+
+def create_glow_effect(ax, lines, color, base_width, num_layers=8, max_alpha=0.9, zorder=5):
+    """Create realistic glow effect for night lights mode."""
+    if not lines:
+        return
+
+    # Outer soft glow layers
+    for i in range(num_layers, 0, -1):
+        layer_width = base_width * (1 + (i - 1) ** 1.2 * 0.5)
+        t = (num_layers - i) / num_layers
+        layer_alpha = max_alpha * np.exp(-3 * (1 - t) ** 2) * 0.4
+        lc = LineCollection(lines, linewidths=layer_width, colors=color, alpha=layer_alpha, zorder=zorder)
+        ax.add_collection(lc)
+
+    # Mid-bright layer
+    lc_mid = LineCollection(lines, linewidths=base_width * 0.8, colors=color, alpha=max_alpha * 0.7, zorder=zorder + 1)
+    ax.add_collection(lc_mid)
+
+    # Bright core
+    lc_bright = LineCollection(lines, linewidths=base_width * 0.4, colors=color, alpha=max_alpha * 0.9, zorder=zorder + 2)
+    ax.add_collection(lc_bright)
+
+    # White hot center
+    lc_core = LineCollection(lines, linewidths=base_width * 0.15, colors='#FFFFF0', alpha=max_alpha, zorder=zorder + 3)
+    ax.add_collection(lc_core)
+
+
+def get_night_road_lines(G_proj, center_x, center_y):
+    """Separate roads by hierarchy and distance from center for color temperature."""
+    highways = {
+        'major_inner': [], 'major_outer': [],
+        'secondary_inner': [], 'secondary_outer': [],
+        'minor_inner': [], 'minor_outer': []
+    }
+
+    nodes = ox.graph_to_gdfs(G_proj, edges=False)
+    max_dist = max(
+        abs(nodes['x'].max() - center_x),
+        abs(nodes['y'].max() - center_y)
+    ) * 0.4
+
+    for u, v, data in G_proj.edges(data=True):
+        highway = data.get('highway', 'residential')
+        if isinstance(highway, list):
+            highway = highway[0]
+
+        if 'geometry' in data:
+            coords = list(data['geometry'].coords)
+            segments = [[coords[i], coords[i + 1]] for i in range(len(coords) - 1)]
+        else:
+            x1, y1 = G_proj.nodes[u]['x'], G_proj.nodes[u]['y']
+            x2, y2 = G_proj.nodes[v]['x'], G_proj.nodes[v]['y']
+            segments = [[(x1, y1), (x2, y2)]]
+
+        if segments:
+            mid_x = (segments[0][0][0] + segments[0][1][0]) / 2
+            mid_y = (segments[0][0][1] + segments[0][1][1]) / 2
+            dist = np.sqrt((mid_x - center_x)**2 + (mid_y - center_y)**2)
+            is_inner = dist < max_dist
+        else:
+            is_inner = True
+
+        if highway in ['motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link']:
+            key = 'major_inner' if is_inner else 'major_outer'
+        elif highway in ['secondary', 'secondary_link', 'tertiary', 'tertiary_link']:
+            key = 'secondary_inner' if is_inner else 'secondary_outer'
+        else:
+            key = 'minor_inner' if is_inner else 'minor_outer'
+
+        highways[key].extend(segments)
+
+    return highways
+
+
+def add_window_lights(ax, buildings_gdf, center_x, center_y, max_dist, theme, zorder=8):
+    """Add scattered window lights with color temperature variation."""
+    if buildings_gdf is None or buildings_gdf.empty:
+        return
+
+    buildings_polys = buildings_gdf[buildings_gdf.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+
+    inner_colors = theme.get('window_lights_inner', ['#E8E8FF', '#D0E0FF', '#F0F0FF', '#FFFFFF'])
+    outer_colors = theme.get('window_lights_outer', ['#FFE4B5', '#FFEFD5', '#FFD700', '#FFA500'])
+
+    lights_x, lights_y, lights_c, lights_s = [], [], [], []
+
+    for idx, row in buildings_polys.iterrows():
+        try:
+            bounds = row.geometry.bounds
+            minx, miny, maxx, maxy = bounds
+
+            if (maxx - minx) < 10 or (maxy - miny) < 10:
+                continue
+
+            bx = (minx + maxx) / 2
+            by = (miny + maxy) / 2
+            dist = np.sqrt((bx - center_x)**2 + (by - center_y)**2)
+            is_inner = dist < max_dist * 0.4
+
+            area = (maxx - minx) * (maxy - miny)
+            num_lights = min(int(area / 400), 6)
+
+            for _ in range(num_lights):
+                px = random.uniform(minx + 2, maxx - 2)
+                py = random.uniform(miny + 2, maxy - 2)
+
+                from shapely.geometry import Point
+                if row.geometry.contains(Point(px, py)):
+                    lights_x.append(px)
+                    lights_y.append(py)
+                    lights_c.append(random.choice(inner_colors if is_inner else outer_colors))
+                    lights_s.append(random.uniform(0.3, 1.5))
+        except Exception:
+            continue
+
+    if lights_x:
+        ax.scatter(lights_x, lights_y, c=lights_c, s=[s * 20 for s in lights_s], alpha=0.15, zorder=zorder, marker='o')
+        ax.scatter(lights_x, lights_y, c=lights_c, s=[s * 5 for s in lights_s], alpha=0.4, zorder=zorder + 1, marker='o')
+        ax.scatter(lights_x, lights_y, c=lights_c, s=lights_s, alpha=0.9, zorder=zorder + 2, marker='o')
+
+
+def create_horizon_glow(ax, color='#0a1530', intensity=0.25):
+    """Create atmospheric horizon glow at the top."""
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    y_range = ylim[1] - ylim[0]
+
+    gradient = np.linspace(0, 1, 256).reshape(-1, 1)
+    gradient = np.hstack((gradient, gradient))
+
+    rgb = mcolors.to_rgb(color)
+    colors = np.zeros((256, 4))
+    for i in range(256):
+        t = i / 255
+        colors[i, 0] = rgb[0]
+        colors[i, 1] = rgb[1]
+        colors[i, 2] = rgb[2]
+        colors[i, 3] = intensity * t ** 2
+
+    cmap = mcolors.ListedColormap(colors)
+
+    y_start = ylim[0] + y_range * 0.7
+    ax.imshow(gradient, extent=[xlim[0], xlim[1], y_start, ylim[1]], aspect='auto', cmap=cmap, zorder=12, origin='lower')
 
 
 class PosterGenerator:
@@ -371,6 +530,46 @@ class PosterGenerator:
             point, dist, DETAIL_LAYER_TAGS["landscape"], "landscape"
         )
 
+    def fetch_waterways(
+        self, point: tuple[float, float], dist: int
+    ) -> GeoDataFrame | None:
+        """Fetch waterways (streams, rivers, canals) from OSM."""
+        return self.fetch_features(
+            point, dist, DETAIL_LAYER_TAGS["waterways"], "waterways"
+        )
+
+    def fetch_railways(
+        self, point: tuple[float, float], dist: int
+    ) -> GeoDataFrame | None:
+        """Fetch railways (train tracks, tram lines) from OSM."""
+        return self.fetch_features(
+            point, dist, DETAIL_LAYER_TAGS["railways"], "railways"
+        )
+
+    def fetch_hedges(
+        self, point: tuple[float, float], dist: int
+    ) -> GeoDataFrame | None:
+        """Fetch hedges/barriers (hedges, fences, walls) from OSM."""
+        return self.fetch_features(
+            point, dist, DETAIL_LAYER_TAGS["hedges"], "hedges"
+        )
+
+    def fetch_leisure(
+        self, point: tuple[float, float], dist: int
+    ) -> GeoDataFrame | None:
+        """Fetch leisure areas (sports, playgrounds, gardens) from OSM."""
+        return self.fetch_features(
+            point, dist, DETAIL_LAYER_TAGS["leisure"], "leisure"
+        )
+
+    def fetch_amenities(
+        self, point: tuple[float, float], dist: int
+    ) -> GeoDataFrame | None:
+        """Fetch amenities (churches, schools, cemeteries) from OSM."""
+        return self.fetch_features(
+            point, dist, DETAIL_LAYER_TAGS["amenities"], "amenities"
+        )
+
     @staticmethod
     def get_layer_defaults(distance_m: int) -> dict:
         """
@@ -382,15 +581,30 @@ class PosterGenerator:
         Returns:
             Dict with layer visibility booleans
         """
+        # All available detail layers
+        all_layers = {
+            "buildings": False,
+            "paths": False,
+            "landscape": False,
+            "waterways": False,
+            "railways": False,
+            "hedges": False,
+            "leisure": False,
+            "amenities": False,
+        }
+
         if distance_m <= LAYER_ZOOM_THRESHOLDS["all_on"]:
-            # Village zoom: all layers on
-            return {"buildings": True, "paths": True, "landscape": True}
+            # Village zoom (<=2km): all layers on
+            return {k: True for k in all_layers}
         elif distance_m <= LAYER_ZOOM_THRESHOLDS["buildings_only"]:
-            # Town zoom: only buildings
-            return {"buildings": True, "paths": False, "landscape": False}
+            # Town zoom (<=8km): buildings, waterways, railways
+            all_layers["buildings"] = True
+            all_layers["waterways"] = True
+            all_layers["railways"] = True
+            return all_layers
         else:
-            # City zoom: no detail layers
-            return {"buildings": False, "paths": False, "landscape": False}
+            # City zoom (>8km): no detail layers
+            return all_layers
 
     def get_layer_color(self, layer_key: str, fallback_key: str = None) -> str:
         """
@@ -459,17 +673,19 @@ class PosterGenerator:
 
         # Calculate fetch steps based on enabled layers
         fetch_steps = 3  # Base: streets, water, parks
-        if layers.get("buildings"):
-            fetch_steps += 1
-        if layers.get("paths"):
-            fetch_steps += 1
-        if layers.get("landscape"):
-            fetch_steps += 1
+        for layer_name in ["buildings", "paths", "landscape", "waterways", "railways", "hedges", "leisure", "amenities"]:
+            if layers.get(layer_name):
+                fetch_steps += 1
 
-        # Fetch map data
+        # Fetch map data - initialize all layer variables
         buildings = None
         paths = None
         landscape = None
+        waterways = None
+        railways = None
+        hedges = None
+        leisure = None
+        amenities = None
 
         with tqdm(
             total=fetch_steps,
@@ -517,8 +733,51 @@ class PosterGenerator:
                 paths = self.fetch_paths(point, distance)
                 pbar.update(1)
 
+            if layers.get("waterways"):
+                pbar.set_description("Downloading waterways")
+                waterways = self.fetch_waterways(point, distance)
+                pbar.update(1)
+
+            if layers.get("railways"):
+                pbar.set_description("Downloading railways")
+                railways = self.fetch_railways(point, distance)
+                pbar.update(1)
+
+            if layers.get("hedges"):
+                pbar.set_description("Downloading hedges/barriers")
+                hedges = self.fetch_hedges(point, distance)
+                pbar.update(1)
+
+            if layers.get("leisure"):
+                pbar.set_description("Downloading leisure areas")
+                leisure = self.fetch_leisure(point, distance)
+                pbar.update(1)
+
+            if layers.get("amenities"):
+                pbar.set_description("Downloading amenities")
+                amenities = self.fetch_amenities(point, distance)
+                pbar.update(1)
+
         print("✓ All data retrieved successfully!")
 
+        # Project graph to metric CRS
+        G_proj = ox.project_graph(G)
+
+        # Check if this is Night Lights mode
+        is_night_lights = self.theme.get("mode") == "night_lights"
+
+        if is_night_lights:
+            # ================================================================
+            # NIGHT LIGHTS RENDERING MODE
+            # ================================================================
+            return self._render_night_lights(
+                G_proj, water, parks, buildings, lat, lon,
+                city_name, country_name, paper_size, distance, dpi, text_position
+            )
+
+        # ================================================================
+        # STANDARD RENDERING MODE
+        # ================================================================
         # Create figure
         print("Rendering map...")
         fig, ax = plt.subplots(
@@ -529,9 +788,6 @@ class PosterGenerator:
         ax.set_facecolor(self.theme["bg"])
         ax.set_position((0.0, 0.0, 1.0, 1.0))
         ax.axis("off")
-
-        # Project graph to metric CRS
-        G_proj = ox.project_graph(G)
 
         # Render landscape features (z=0, beneath everything)
         if landscape is not None and not landscape.empty:
@@ -585,6 +841,27 @@ class PosterGenerator:
                     zorder=LAYER_ZORDER["water"],
                 )
 
+        # Render waterways (streams, rivers, canals) (z=1.5)
+        if waterways is not None and not waterways.empty:
+            waterways_lines = waterways[
+                waterways.geometry.type.isin(["LineString", "MultiLineString"])
+            ]
+            if not waterways_lines.empty:
+                try:
+                    waterways_lines = ox.projection.project_gdf(waterways_lines)
+                except Exception:
+                    waterways_lines = waterways_lines.to_crs(G_proj.graph["crs"])
+
+                waterway_color = self.get_layer_color("waterways", "water")
+
+                waterways_lines.plot(
+                    ax=ax,
+                    color=waterway_color,
+                    linewidth=DETAIL_LAYER_LINEWIDTHS["waterways"],
+                    alpha=0.8,
+                    zorder=LAYER_ZORDER["waterways"],
+                )
+
         # Render parks features (z=2)
         if parks is not None and not parks.empty:
             parks_polys = parks[parks.geometry.type.isin(["Polygon", "MultiPolygon"])]
@@ -598,6 +875,50 @@ class PosterGenerator:
                     facecolor=self.theme["parks"],
                     edgecolor="none",
                     zorder=LAYER_ZORDER["parks"],
+                )
+
+        # Render leisure areas (sports, playgrounds, gardens) (z=2.5)
+        if leisure is not None and not leisure.empty:
+            leisure_polys = leisure[
+                leisure.geometry.type.isin(["Polygon", "MultiPolygon"])
+            ]
+            if not leisure_polys.empty:
+                try:
+                    leisure_polys = ox.projection.project_gdf(leisure_polys)
+                except Exception:
+                    leisure_polys = leisure_polys.to_crs(G_proj.graph["crs"])
+
+                leisure_color = self.get_layer_color("leisure", "parks")
+
+                leisure_polys.plot(
+                    ax=ax,
+                    facecolor=leisure_color,
+                    edgecolor="none",
+                    alpha=0.6,
+                    zorder=LAYER_ZORDER["leisure"],
+                )
+
+        # Render amenities (churches, schools, cemeteries) (z=2.8)
+        if amenities is not None and not amenities.empty:
+            amenities_polys = amenities[
+                amenities.geometry.type.isin(["Polygon", "MultiPolygon"])
+            ]
+            if not amenities_polys.empty:
+                try:
+                    amenities_polys = ox.projection.project_gdf(amenities_polys)
+                except Exception:
+                    amenities_polys = amenities_polys.to_crs(G_proj.graph["crs"])
+
+                amenity_fill = self.get_layer_color("amenities", "buildings_fill")
+                amenity_edge = self.get_layer_color("amenities_edge", "buildings")
+
+                amenities_polys.plot(
+                    ax=ax,
+                    facecolor=amenity_fill,
+                    edgecolor=amenity_edge,
+                    linewidth=0.3,
+                    alpha=0.7,
+                    zorder=LAYER_ZORDER["amenities"],
                 )
 
         # Render buildings (z=3)
@@ -624,6 +945,27 @@ class PosterGenerator:
                     zorder=LAYER_ZORDER["buildings"],
                 )
 
+        # Render hedges/barriers (z=3.5)
+        if hedges is not None and not hedges.empty:
+            hedges_lines = hedges[
+                hedges.geometry.type.isin(["LineString", "MultiLineString"])
+            ]
+            if not hedges_lines.empty:
+                try:
+                    hedges_lines = ox.projection.project_gdf(hedges_lines)
+                except Exception:
+                    hedges_lines = hedges_lines.to_crs(G_proj.graph["crs"])
+
+                hedge_color = self.get_layer_color("hedges", "parks")
+
+                hedges_lines.plot(
+                    ax=ax,
+                    color=hedge_color,
+                    linewidth=DETAIL_LAYER_LINEWIDTHS["hedges"],
+                    alpha=0.7,
+                    zorder=LAYER_ZORDER["hedges"],
+                )
+
         # Render paths/tracks (z=4)
         if paths is not None and not paths.empty:
             # Paths are usually LineStrings
@@ -644,6 +986,29 @@ class PosterGenerator:
                     linewidth=DETAIL_LAYER_LINEWIDTHS["paths"],
                     alpha=0.6,
                     zorder=LAYER_ZORDER["paths"],
+                )
+
+        # Render railways (z=4.5)
+        if railways is not None and not railways.empty:
+            railways_lines = railways[
+                railways.geometry.type.isin(["LineString", "MultiLineString"])
+            ]
+            if not railways_lines.empty:
+                try:
+                    railways_lines = ox.projection.project_gdf(railways_lines)
+                except Exception:
+                    railways_lines = railways_lines.to_crs(G_proj.graph["crs"])
+
+                railway_color = self.get_layer_color("railways", "text")
+
+                # Draw railway lines with characteristic dashed style
+                railways_lines.plot(
+                    ax=ax,
+                    color=railway_color,
+                    linewidth=DETAIL_LAYER_LINEWIDTHS["railways"],
+                    linestyle=(0, (5, 3)),  # Dashed pattern for railway look
+                    alpha=0.9,
+                    zorder=LAYER_ZORDER["railways"],
                 )
 
         # Render roads with hierarchy
@@ -694,6 +1059,149 @@ class PosterGenerator:
         print("✓ Map generated successfully!")
         return fig
 
+    def _render_night_lights(
+        self,
+        G_proj,
+        water,
+        parks,
+        buildings,
+        lat: float,
+        lon: float,
+        city_name: str,
+        country_name: str,
+        paper_size: str,
+        distance: int,
+        dpi: int,
+        text_position: dict,
+    ) -> Figure:
+        """
+        Render map in Night Lights mode - glowing streets on dark background.
+
+        Creates an aerial night photography effect with:
+        - Glowing road lines with bloom effect
+        - Dark building silhouettes
+        - Scattered window lights
+        - Color temperature variation (cool center, warm edges)
+        """
+        print("Rendering in Night Lights mode...")
+
+        fig_width, fig_height = PAPER_SIZES[paper_size]
+        bg_color = self.theme.get("bg", "#040408")
+
+        fig, ax = plt.subplots(
+            figsize=(fig_width, fig_height),
+            facecolor=bg_color,
+            dpi=dpi or PREVIEW_DPI,
+        )
+        ax.set_facecolor(bg_color)
+        ax.set_position((0.0, 0.0, 1.0, 1.0))
+        ax.axis("off")
+
+        # Set view limits
+        nodes = ox.graph_to_gdfs(G_proj, edges=False)
+        xmin, xmax = nodes['x'].min(), nodes['x'].max()
+        ymin, ymax = nodes['y'].min(), nodes['y'].max()
+        ax.set_xlim(xmin, xmax)
+        ax.set_ylim(ymin, ymax)
+        ax.set_aspect('equal')
+
+        center_x = (xmin + xmax) / 2
+        center_y = (ymin + ymax) / 2
+        max_dist = max(xmax - xmin, ymax - ymin) / 2
+
+        # Render water as very dark
+        if water is not None and not water.empty:
+            water_polys = water[water.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+            if not water_polys.empty:
+                try:
+                    water_polys = ox.projection.project_gdf(water_polys)
+                except Exception:
+                    water_polys = water_polys.to_crs(G_proj.graph["crs"])
+                water_color = self.theme.get("water", "#020208")
+                water_polys.plot(ax=ax, facecolor=water_color, edgecolor='none', alpha=1.0, zorder=1)
+                # Subtle reflection
+                water_polys.plot(ax=ax, facecolor='#FFB34720', edgecolor='none', alpha=0.15, zorder=1.5)
+
+        # Render parks as very dark
+        if parks is not None and not parks.empty:
+            parks_polys = parks[parks.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+            if not parks_polys.empty:
+                try:
+                    parks_polys = ox.projection.project_gdf(parks_polys)
+                except Exception:
+                    parks_polys = parks_polys.to_crs(G_proj.graph["crs"])
+                parks_color = self.theme.get("parks", "#030306")
+                parks_polys.plot(ax=ax, facecolor=parks_color, edgecolor='none', alpha=0.95, zorder=1)
+
+        # Render buildings as dark silhouettes
+        if buildings is not None and not buildings.empty:
+            buildings_polys = buildings[buildings.geometry.type.isin(['Polygon', 'MultiPolygon'])]
+            if not buildings_polys.empty:
+                try:
+                    buildings_polys = ox.projection.project_gdf(buildings_polys)
+                except Exception:
+                    buildings_polys = buildings_polys.to_crs(G_proj.graph["crs"])
+                fill_color = self.theme.get("buildings_fill", "#08080f")
+                edge_color = self.theme.get("buildings_edge", "#101018")
+                buildings_polys.plot(ax=ax, facecolor=fill_color, edgecolor=edge_color, linewidth=0.08, alpha=0.97, zorder=2)
+
+        # Get roads with color temperature
+        highways = get_night_road_lines(G_proj, center_x, center_y)
+
+        # Color palette - outer (warm/orange) and inner (cool/white)
+        colors_outer = {
+            'major': self.theme.get("road_motorway", "#FFB030"),
+            'secondary': self.theme.get("road_secondary", "#FF9020"),
+            'minor': self.theme.get("road_residential", "#E07010")
+        }
+        colors_inner = {
+            'major': self.theme.get("road_motorway_inner", "#FFEEDD"),
+            'secondary': self.theme.get("road_secondary_inner", "#FFE0C0"),
+            'minor': self.theme.get("road_residential_inner", "#FFD8A8")
+        }
+
+        glow_layers = self.theme.get("glow_layers", 8)
+        glow_intensity = self.theme.get("glow_intensity", 0.9)
+
+        # Render roads with glow effect
+        print("  Rendering road glow effects...")
+        create_glow_effect(ax, highways['minor_outer'], colors_outer['minor'], base_width=0.25, num_layers=5, max_alpha=0.45, zorder=3)
+        create_glow_effect(ax, highways['minor_inner'], colors_inner['minor'], base_width=0.25, num_layers=5, max_alpha=0.45, zorder=3)
+        create_glow_effect(ax, highways['secondary_outer'], colors_outer['secondary'], base_width=0.45, num_layers=6, max_alpha=0.65, zorder=4)
+        create_glow_effect(ax, highways['secondary_inner'], colors_inner['secondary'], base_width=0.45, num_layers=6, max_alpha=0.65, zorder=4)
+        create_glow_effect(ax, highways['major_outer'], colors_outer['major'], base_width=0.8, num_layers=glow_layers, max_alpha=glow_intensity, zorder=5)
+        create_glow_effect(ax, highways['major_inner'], colors_inner['major'], base_width=0.8, num_layers=glow_layers, max_alpha=glow_intensity, zorder=5)
+
+        # Add window lights
+        if buildings is not None:
+            print("  Adding window lights...")
+            try:
+                add_window_lights(ax, buildings_polys, center_x, center_y, max_dist, self.theme, zorder=8)
+            except Exception:
+                pass
+
+        # Add horizon glow
+        print("  Adding atmospheric effects...")
+        horizon_color = self.theme.get("horizon_glow", "#0a1530")
+        create_horizon_glow(ax, horizon_color, intensity=0.25)
+
+        # Apply text overlay
+        apply_text_overlay(
+            ax,
+            city_name,
+            country_name,
+            lat,
+            lon,
+            self.theme,
+            fonts=self.fonts,
+            text_config=text_position,
+            paper_size=paper_size,
+            distance_m=distance,
+        )
+
+        print("✓ Night Lights map generated successfully!")
+        return fig
+
     def save_poster(
         self,
         fig: Figure,
@@ -724,8 +1232,12 @@ class PosterGenerator:
             save_kwargs["dpi"] = dpi
 
         print(f"Saving to {output_path}...")
+        # Save the figure to file
         plt.savefig(output_path, format=fmt, **save_kwargs)
+
+        # Close the figure to free memory and avoid display issues
         plt.close(fig)
+
         print(f"✓ Done! Saved as {output_path}")
 
     @staticmethod

@@ -52,8 +52,8 @@ DEFAULT_PAPER_SIZE = "A4"
 # Default DPI for preview
 PREVIEW_DPI = 150
 
-# Default DPI for final output
-OUTPUT_DPI = 300
+# Default DPI for final output (450 for high-quality village prints)
+OUTPUT_DPI = 450
 
 # Default map radius in meters
 DEFAULT_DISTANCE = 8000  # 8 km
@@ -218,15 +218,25 @@ DETAIL_LAYER_TAGS = {
         "landuse": ["farmland", "meadow", "orchard", "vineyard", "forest"],
         "natural": ["wood", "scrub", "heath", "grassland"],
     },
+    "waterways": {"waterway": ["stream", "river", "canal", "ditch", "drain"]},
+    "railways": {"railway": ["rail", "tram", "light_rail", "narrow_gauge"]},
+    "hedges": {"barrier": ["hedge", "fence", "wall"]},
+    "leisure": {"leisure": ["pitch", "playground", "garden", "sports_centre"]},
+    "amenities": {"amenity": ["place_of_worship", "school", "cemetery"]},
 }
 
 # Z-order for rendering layers (higher = on top)
 LAYER_ZORDER = {
     "landscape": 0,
     "water": 1,
+    "waterways": 1.5,
     "parks": 2,
+    "leisure": 2.5,
+    "amenities": 2.8,
     "buildings": 3,
+    "hedges": 3.5,
     "paths": 4,
+    "railways": 4.5,
     "roads": 5,
     "gradients": 10,
     "text": 11,
@@ -236,6 +246,9 @@ LAYER_ZORDER = {
 DETAIL_LAYER_LINEWIDTHS = {
     "paths": 0.3,
     "buildings_edge": 0.2,
+    "waterways": 0.5,
+    "railways": 0.6,
+    "hedges": 0.2,
 }
 
 # ============================================================================
@@ -310,4 +323,12 @@ DEFAULT_THEME_COLORS = {
     "farmland": "#F5F5DC",
     "forest": "#C8E6C9",
     "meadow": "#E8F5E9",
+    # New detail layer colors
+    "waterways": "#7CB9E8",
+    "railways": "#4A4A4A",
+    "railways_dash": "#FFFFFF",
+    "hedges": "#6B8E23",
+    "leisure": "#C5E1A5",
+    "amenities": "#E0E0E0",
+    "amenities_edge": "#808080",
 }
