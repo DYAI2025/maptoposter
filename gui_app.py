@@ -601,52 +601,50 @@ with col_input:
     # Get recommended defaults based on zoom level
     layer_defaults = get_layer_defaults(distance_m)
 
-    st.caption("💡 Voreinstellungen basieren auf der gewählten Zoom-Stufe")
+    st.caption("💡 Voreinstellungen basieren auf Zoom-Stufe")
 
-    col_layer1, col_layer2, col_layer3 = st.columns(3)
+    col_layer1, col_layer2 = st.columns(2)
 
     with col_layer1:
         show_buildings = st.checkbox(
-            "🏠 Gebäude",
+            "Gebäude",
             value=layer_defaults.get("buildings", False),
             help="Gebäudeumrisse anzeigen",
         )
         show_paths = st.checkbox(
-            "🚶 Wege / Pfade",
+            "Wege",
             value=layer_defaults.get("paths", False),
             help="Wanderwege, Radwege, Feldwege",
         )
         show_landscape = st.checkbox(
-            "🌾 Landschaft",
+            "Landschaft",
             value=layer_defaults.get("landscape", False),
             help="Felder, Wiesen, Wälder",
         )
+        show_waterways = st.checkbox(
+            "Gewässer",
+            value=layer_defaults.get("waterways", False),
+            help="Bäche, Flüsse, Kanäle",
+        )
 
     with col_layer2:
-        show_waterways = st.checkbox(
-            "💧 Bäche/Flüsse",
-            value=layer_defaults.get("waterways", False),
-            help="Bäche, Flüsse, Kanäle, Gräben",
-        )
         show_railways = st.checkbox(
-            "🚂 Bahngleise",
+            "Bahngleise",
             value=layer_defaults.get("railways", False),
             help="Schienen, Straßenbahn",
         )
         show_hedges = st.checkbox(
-            "🌿 Hecken/Zäune",
+            "Hecken",
             value=layer_defaults.get("hedges", False),
             help="Hecken, Mauern, Zäune",
         )
-
-    with col_layer3:
         show_leisure = st.checkbox(
-            "⚽ Freizeit",
+            "Freizeit",
             value=layer_defaults.get("leisure", False),
-            help="Sportplätze, Spielplätze, Gärten",
+            help="Sportplätze, Spielplätze",
         )
         show_amenities = st.checkbox(
-            "⛪ Einrichtungen",
+            "Gebäude+",
             value=layer_defaults.get("amenities", False),
             help="Kirchen, Schulen, Friedhöfe",
         )
