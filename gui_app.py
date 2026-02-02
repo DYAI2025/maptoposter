@@ -4,8 +4,12 @@ CityMaps Poster Generator - Streamlit GUI
 A beautiful, refined web interface for generating map posters with custom
 themes, text positioning, and multiple export formats.
 
-Supports both address geocoding AND direct coordinate input for precise
-location control - perfect for villages, neighborhoods, or any exact spot.
+Features:
+- Theme gallery with visual previews
+- Custom theme designer with color pickers
+- Save/load custom themes
+- Multiple zoom presets
+- Detail layer controls
 """
 
 import os
@@ -33,8 +37,17 @@ from modules.config import (
     LAYER_ZOOM_THRESHOLDS,
     FONT_OPTIONS,
     DEFAULT_FONT,
+    THEMES_DIR,
 )
 
+
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
+PREVIEW_DIR = Path(__file__).parent / "theme_previews"
+CUSTOM_THEMES_DIR = Path(__file__).parent / "custom_themes"
+CUSTOM_THEMES_DIR.mkdir(exist_ok=True)
 
 # ============================================================================
 # PAGE CONFIGURATION & STYLING
@@ -67,7 +80,7 @@ st.html(
 
     /* Main content area */
     .stColumn {
-        padding: 2rem 1.5rem;
+        padding: 1.5rem 1rem;
     }
 
     /* Headings with serif styling */
@@ -80,8 +93,8 @@ st.html(
     h2 {
         border-bottom: 2px solid var(--accent-gold);
         padding-bottom: 0.5rem;
-        margin-top: 1.5rem;
-        margin-bottom: 1rem;
+        margin-top: 1rem;
+        margin-bottom: 0.75rem;
     }
 
     /* Input labels */
@@ -113,53 +126,54 @@ st.html(
     /* Divider styling */
     hr {
         border: 1px solid var(--accent-gold);
-        margin: 1.5rem 0;
+        margin: 1rem 0;
     }
 
-    /* Info boxes */
-    .stInfo {
-        background-color: #f0f8fa;
-        border-left: 4px solid var(--primary-blue);
-        padding: 1rem;
-        border-radius: 0.25rem;
+    /* Theme gallery grid */
+    .theme-card {
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: white;
     }
 
-    .stSuccess {
-        background-color: #e8f5e9;
-        border-left: 4px solid #4caf50;
+    .theme-card:hover {
+        border-color: var(--accent-gold);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
-    .stWarning {
-        background-color: #fff3e0;
-        border-left: 4px solid #ff9800;
+    .theme-card.selected {
+        border-color: var(--primary-blue);
+        box-shadow: 0 0 0 3px rgba(26, 58, 82, 0.2);
     }
 
-    /* Slider styling */
-    .stSlider {
-        padding: 0.5rem 0;
+    .theme-card img {
+        width: 100%;
+        border-radius: 4px;
     }
 
-    .stSlider > div > div > div {
-        color: var(--primary-blue);
+    .theme-card-name {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-align: center;
+        margin-top: 4px;
+        color: var(--text-dark);
     }
 
-    /* Preview frame */
-    .preview-frame {
-        border: 2px solid var(--accent-gold);
-        padding: 1rem;
-        background-color: white;
-        border-radius: 0.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    /* Color picker grid */
+    .color-picker-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin: 1rem 0;
     }
 
-    /* Expander styling */
-    .streamlit-expanderHeader {
-        background-color: #f0f8fa;
-        border-left: 4px solid var(--primary-blue);
-    }
-
-    .streamlit-expanderHeader:hover {
-        background-color: #e0f2f7;
+    .color-picker-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 
     /* Google Maps link button */
@@ -180,14 +194,14 @@ st.html(
         text-decoration: none;
     }
 
-    /* Zoom preset badges */
-    .zoom-badge {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
-        border-radius: 1rem;
-        font-size: 0.75rem;
+    /* Tab styling improvements */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        padding: 8px 16px;
         font-weight: 600;
-        margin-right: 0.5rem;
     }
     </style>
     """
@@ -201,7 +215,7 @@ GOOGLE_FONTS_CSS = """
 """
 
 # ============================================================================
-# ZOOM PRESETS - From village to metropolis
+# ZOOM PRESETS
 # ============================================================================
 
 ZOOM_PRESETS = {
@@ -230,10 +244,95 @@ if "generation_history" not in st.session_state:
 if "current_config" not in st.session_state:
     st.session_state.current_config = None
 
+if "selected_theme" not in st.session_state:
+    st.session_state.selected_theme = "feature_based"
+
+if "custom_theme_colors" not in st.session_state:
+    st.session_state.custom_theme_colors = {
+        "bg": "#FFFFFF",
+        "text": "#1A1A1A",
+        "water": "#A8DADC",
+        "parks": "#90BE6D",
+        "road_motorway": "#F77F00",
+        "road_primary": "#F94144",
+        "road_secondary": "#F8961E",
+        "road_tertiary": "#F9C74F",
+        "road_residential": "#90BE6D",
+        "road_default": "#CCCCCC",
+        "buildings": "#D0D0D0",
+        "buildings_fill": "#E8E8E8",
+        "paths": "#B0B0B0",
+        "gradient_color": "#FFFFFF",
+    }
+
+if "use_custom_theme" not in st.session_state:
+    st.session_state.use_custom_theme = False
+
 
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
+
+def get_theme_preview_path(theme_name: str) -> Path | None:
+    """Get path to theme preview image if it exists."""
+    preview_path = PREVIEW_DIR / f"{theme_name}.png"
+    if preview_path.exists():
+        return preview_path
+    return None
+
+
+def get_all_themes() -> list[str]:
+    """Get list of all available standard themes."""
+    themes_path = Path(THEMES_DIR)
+    if not themes_path.exists():
+        return ["feature_based"]
+    return sorted([f.stem for f in themes_path.glob("*.json")])
+
+
+def get_custom_themes() -> list[str]:
+    """Get list of all custom themes."""
+    if not CUSTOM_THEMES_DIR.exists():
+        return []
+    return sorted([f.stem for f in CUSTOM_THEMES_DIR.glob("*.json")])
+
+
+def load_custom_theme(theme_name: str) -> dict | None:
+    """Load a custom theme from file."""
+    theme_path = CUSTOM_THEMES_DIR / f"{theme_name}.json"
+    if theme_path.exists():
+        with open(theme_path, "r") as f:
+            return json.load(f)
+    return None
+
+
+def save_custom_theme(theme_name: str, colors: dict) -> bool:
+    """Save a custom theme to file."""
+    try:
+        theme_data = {
+            "name": theme_name,
+            "description": f"Custom theme created on {datetime.now().strftime('%Y-%m-%d')}",
+            "custom": True,
+            **colors,
+        }
+        theme_path = CUSTOM_THEMES_DIR / f"{theme_name}.json"
+        with open(theme_path, "w") as f:
+            json.dump(theme_data, f, indent=2)
+        return True
+    except Exception:
+        return False
+
+
+def delete_custom_theme(theme_name: str) -> bool:
+    """Delete a custom theme."""
+    try:
+        theme_path = CUSTOM_THEMES_DIR / f"{theme_name}.json"
+        if theme_path.exists():
+            theme_path.unlink()
+            return True
+    except Exception:
+        pass
+    return False
+
 
 def show_theme_color_bar(theme_dict: dict) -> None:
     """Display 6 color swatches as a horizontal bar for theme preview."""
@@ -247,40 +346,28 @@ def show_theme_color_bar(theme_dict: dict) -> None:
     ]
 
     html = '''
-    <div style="display: flex; gap: 4px; margin: 0.75rem 0; align-items: center;">
+    <div style="display: flex; gap: 4px; margin: 0.5rem 0; align-items: center;">
     '''
     for label, color in colors:
         html += f'''
-        <div style="
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        ">
+        <div style="display: flex; flex-direction: column; align-items: center;">
             <div style="
-                width: 36px;
-                height: 36px;
+                width: 32px;
+                height: 32px;
                 background-color: {color};
                 border: 1px solid rgba(0,0,0,0.2);
                 border-radius: 4px;
             " title="{label}: {color}"></div>
-            <span style="font-size: 0.65rem; color: #666; margin-top: 2px;">{label}</span>
+            <span style="font-size: 0.6rem; color: #666; margin-top: 2px;">{label}</span>
         </div>
         '''
     html += '</div>'
-
     st.html(html)
 
 
 def font_selector() -> str:
     """Font selection with ABC preview in each font."""
-
-    # Inject Google Fonts CSS
     st.html(GOOGLE_FONTS_CSS)
-
-    st.markdown("**Schriftart:**")
-
-    # Build font preview HTML
-    font_html = '<div style="display: flex; flex-direction: column; gap: 8px; margin: 0.5rem 0;">'
 
     font_css_families = {
         "roboto": "Roboto, sans-serif",
@@ -290,23 +377,18 @@ def font_selector() -> str:
         "raleway": "Raleway, sans-serif; font-weight: 300",
     }
 
+    font_html = '<div style="display: flex; flex-direction: column; gap: 6px; margin: 0.5rem 0;">'
     for font_id, config in FONT_OPTIONS.items():
         css_family = font_css_families.get(font_id, "sans-serif")
         font_html += f'''
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="
-                font-family: {css_family};
-                font-size: 1.2rem;
-                min-width: 50px;
-            ">ABC</span>
-            <span style="color: #666; font-size: 0.85rem;">{config["name"]} ({config["style"]})</span>
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-family: {css_family}; font-size: 1.1rem; min-width: 45px;">ABC</span>
+            <span style="color: #666; font-size: 0.8rem;">{config["name"]}</span>
         </div>
         '''
-
     font_html += '</div>'
     st.html(font_html)
 
-    # Actual selector
     selected_font = st.selectbox(
         "Schriftart auswählen",
         options=list(FONT_OPTIONS.keys()),
@@ -314,12 +396,13 @@ def font_selector() -> str:
         format_func=lambda x: f"{FONT_OPTIONS[x]['name']} - {FONT_OPTIONS[x]['style']}",
         label_visibility="collapsed",
     )
-
     return selected_font
 
 
-def get_theme_dict(theme_name: str) -> dict:
-    """Load theme from file or return default."""
+def get_theme_dict(theme_name: str, custom_colors: dict = None) -> dict:
+    """Load theme from file or return custom colors."""
+    if custom_colors:
+        return custom_colors
     generator = PosterGenerator(theme_name)
     return generator.theme
 
@@ -327,21 +410,18 @@ def get_theme_dict(theme_name: str) -> dict:
 def download_button(fig, format_type: str, filename: str) -> bytes:
     """Generate downloadable bytes from figure."""
     buf = io.BytesIO()
-
     if format_type == "png":
         fig.savefig(buf, format="png", dpi=300, bbox_inches="tight", pad_inches=0.05)
     elif format_type == "svg":
         fig.savefig(buf, format="svg", bbox_inches="tight", pad_inches=0.05)
     elif format_type == "pdf":
         fig.savefig(buf, format="pdf", bbox_inches="tight", pad_inches=0.05)
-
     buf.seek(0)
     return buf.getvalue()
 
 
 def add_to_history(config: dict, fig) -> None:
     """Add generated poster to history."""
-    # Create thumbnail
     thumb_buf = io.BytesIO()
     fig.savefig(thumb_buf, format="png", dpi=60, bbox_inches="tight", pad_inches=0.05)
     thumb_buf.seek(0)
@@ -355,35 +435,24 @@ def add_to_history(config: dict, fig) -> None:
         "thumbnail": thumb_img,
         "config": config,
     }
-
     st.session_state.generation_history.append(history_item)
 
 
 def get_layer_defaults(distance_m: int) -> dict:
     """Get default layer visibility based on zoom level."""
-    # All available layers
     all_layers = {
-        "buildings": False,
-        "paths": False,
-        "landscape": False,
-        "waterways": False,
-        "railways": False,
-        "hedges": False,
-        "leisure": False,
-        "amenities": False,
+        "buildings": False, "paths": False, "landscape": False, "waterways": False,
+        "railways": False, "hedges": False, "leisure": False, "amenities": False,
     }
 
     if distance_m <= LAYER_ZOOM_THRESHOLDS["all_on"]:
-        # Village zoom (<=2km): all layers on
         return {k: True for k in all_layers}
     elif distance_m <= LAYER_ZOOM_THRESHOLDS["buildings_only"]:
-        # Town zoom (<=8km): buildings, waterways, railways
         all_layers["buildings"] = True
         all_layers["waterways"] = True
         all_layers["railways"] = True
         return all_layers
     else:
-        # City zoom (>8km): no detail layers
         return all_layers
 
 
@@ -391,7 +460,6 @@ def parse_coordinates(coord_string: str) -> tuple[float, float] | None:
     """Parse coordinates from various formats."""
     coord_string = coord_string.strip()
 
-    # Try to parse "lat, lon" format
     if "," in coord_string:
         parts = coord_string.split(",")
         if len(parts) == 2:
@@ -403,7 +471,6 @@ def parse_coordinates(coord_string: str) -> tuple[float, float] | None:
             except ValueError:
                 pass
 
-    # Try to parse "lat lon" format (space separated)
     parts = coord_string.split()
     if len(parts) == 2:
         try:
@@ -417,19 +484,59 @@ def parse_coordinates(coord_string: str) -> tuple[float, float] | None:
     return None
 
 
+def render_theme_gallery(themes: list[str], cols_per_row: int = 4, is_custom: bool = False) -> str | None:
+    """Render a visual theme gallery with preview images."""
+    selected = None
+
+    # Create rows of theme cards
+    for row_start in range(0, len(themes), cols_per_row):
+        row_themes = themes[row_start:row_start + cols_per_row]
+        cols = st.columns(cols_per_row)
+
+        for idx, theme in enumerate(row_themes):
+            with cols[idx]:
+                preview_path = get_theme_preview_path(theme)
+                is_selected = (st.session_state.selected_theme == theme and
+                              st.session_state.use_custom_theme == is_custom)
+
+                # Container with border
+                border_color = "#1a3a52" if is_selected else "#e0e0e0"
+                border_width = "3px" if is_selected else "1px"
+
+                if preview_path:
+                    img = Image.open(preview_path)
+                    st.image(img, use_container_width=True)
+                else:
+                    # Show color bar as fallback
+                    theme_dict = get_theme_dict(theme) if not is_custom else load_custom_theme(theme)
+                    if theme_dict:
+                        show_theme_color_bar(theme_dict)
+                    else:
+                        st.caption("Keine Vorschau")
+
+                # Theme name and select button
+                if st.button(
+                    theme.replace("_", " ").title(),
+                    key=f"theme_btn_{theme}_{is_custom}",
+                    use_container_width=True,
+                ):
+                    st.session_state.selected_theme = theme
+                    st.session_state.use_custom_theme = is_custom
+                    selected = theme
+
+    return selected
+
+
 # ============================================================================
 # PAGE HEADER
 # ============================================================================
 
 st.html(
     """
-    <div style="text-align: center; margin-bottom: 2rem;">
-        <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">🗺️ CityMaps</h1>
-        <p style="font-size: 1.1rem; color: #666; font-style: italic;">
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+        <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">CityMaps</h1>
+        <p style="font-size: 1rem; color: #666; font-style: italic;">
             Beautiful map posters crafted from OpenStreetMap data
-        </p>
-        <p style="font-size: 0.9rem; color: #888;">
-            Von der Metropole bis zum kleinsten Dorf – immer hochauflösend
         </p>
     </div>
     """
@@ -439,285 +546,358 @@ st.html(
 # MAIN LAYOUT: 3 COLUMNS
 # ============================================================================
 
-col_input, col_preview, col_history = st.columns([1, 2, 1], gap="medium")
+col_input, col_preview, col_history = st.columns([1.2, 2, 0.8], gap="medium")
 
 # ============================================================================
-# COLUMN 1: INPUT PANEL
+# COLUMN 1: INPUT PANEL WITH TABS
 # ============================================================================
 
 with col_input:
-    st.markdown("### 🎨 Konfiguration")
-
-    # Paper Format Selection
-    paper_format = st.selectbox(
-        "Papierformat",
-        options=list(PAPER_SIZES.keys()),
-        index=list(PAPER_SIZES.keys()).index(DEFAULT_PAPER_SIZE),
-        help="Wähle die Poster-Dimensionen (ISO 216 Standard)",
-    )
-
-    # Theme Selection
-    generator = PosterGenerator()
-    available_themes = generator.get_available_themes()
-
-    theme_name = st.selectbox(
-        "Farbthema",
-        options=available_themes if available_themes else ["feature_based"],
-        help="Wähle das visuelle Theme für die Kartenfarben",
-    )
-
-    # Show theme color preview
-    theme_dict = get_theme_dict(theme_name)
-    show_theme_color_bar(theme_dict)
-    if theme_dict.get("description"):
-        st.caption(f"_{theme_dict.get('description')}_")
-
-    # Font Selection
-    st.markdown("")  # Spacer
-    selected_font = font_selector()
-
-    st.divider()
+    # Main tabs for organization
+    tab_theme, tab_location, tab_details = st.tabs(["🎨 Theme", "📍 Standort", "⚙️ Details"])
 
     # ========================================================================
-    # LOCATION INPUT - Two modes
+    # TAB 1: THEME SELECTION
     # ========================================================================
+    with tab_theme:
+        # Sub-tabs for theme types
+        theme_subtab1, theme_subtab2, theme_subtab3 = st.tabs([
+            "Vorgefertigte Themes", "Custom Themes", "Theme Designer"
+        ])
 
-    st.markdown("### 📍 Standort")
+        # ----- Standard Themes Gallery -----
+        with theme_subtab1:
+            st.markdown("##### Theme-Galerie")
 
-    input_mode = st.radio(
-        "Eingabemethode",
-        options=["Adresse / Ortsname", "Direkte Koordinaten"],
-        horizontal=True,
-        help="Koordinaten ermöglichen präzise Positionierung für jeden Ort der Welt",
-    )
+            all_themes = get_all_themes()
 
-    lat, lon, location_name, country_name = None, None, None, None
+            # Search/filter
+            theme_search = st.text_input(
+                "Theme suchen",
+                placeholder="z.B. noir, ocean...",
+                key="theme_search"
+            )
 
-    if input_mode == "Adresse / Ortsname":
-        # Address mode (existing)
-        address = st.text_input(
-            "Adresse",
-            placeholder="z.B. Isernhagen, Deutschland",
-            help="Stadt, Dorf oder Adresse eingeben",
-        )
-
-    else:
-        # Direct coordinates mode (NEW!)
-        st.html(
-            """
-            <a href="https://www.google.com/maps" target="_blank" class="gmaps-link">
-                🌍 Google Maps öffnen
-            </a>
-            """
-        )
-
-        with st.expander("📖 Anleitung: Koordinaten aus Google Maps", expanded=False):
-            st.markdown("""
-            **So findest du die Koordinaten:**
-
-            1. Öffne [Google Maps](https://www.google.com/maps)
-            2. Navigiere zu deinem gewünschten Ort
-            3. **Rechtsklick** auf die exakte Position
-            4. Klicke auf die Koordinaten (erste Zeile im Menü)
-            5. Die Koordinaten werden kopiert!
-            6. Füge sie hier ein (Format: `52.5174, 13.3951`)
-
-            **Tipp:** Zoome nah heran für präzise Positionierung!
-            """)
-
-        coordinates_input = st.text_input(
-            "Koordinaten (Lat, Lon)",
-            placeholder="52.5174, 13.3951",
-            help="Aus Google Maps kopieren: Rechtsklick → Koordinaten klicken",
-        )
-
-        # Parse coordinates
-        if coordinates_input:
-            parsed = parse_coordinates(coordinates_input)
-            if parsed:
-                lat, lon = parsed
-                st.success(f"✅ Koordinaten erkannt: {lat:.6f}, {lon:.6f}")
+            if theme_search:
+                filtered_themes = [t for t in all_themes if theme_search.lower() in t.lower()]
             else:
-                st.error("❌ Ungültiges Format. Bitte 'Lat, Lon' eingeben (z.B. 52.5174, 13.3951)")
+                filtered_themes = all_themes
 
-        # Custom location name for coordinates
-        location_name = st.text_input(
-            "Ortsname (für Poster)",
-            placeholder="z.B. Mein Zuhause, Wettmar, etc.",
-            help="Dieser Name erscheint auf dem Poster",
-        )
+            if filtered_themes:
+                selected = render_theme_gallery(filtered_themes, cols_per_row=3)
+                if selected:
+                    st.rerun()
+            else:
+                st.info("Keine Themes gefunden")
 
-        country_name = st.text_input(
-            "Land / Region (optional)",
-            placeholder="z.B. Deutschland, Niedersachsen, etc.",
-            help="Erscheint unter dem Ortsnamen",
-        )
+            # Show selected theme info
+            if not st.session_state.use_custom_theme:
+                st.divider()
+                theme_dict = get_theme_dict(st.session_state.selected_theme)
+                st.markdown(f"**Ausgewählt:** {st.session_state.selected_theme.replace('_', ' ').title()}")
+                show_theme_color_bar(theme_dict)
+                if theme_dict.get("description"):
+                    st.caption(f"_{theme_dict.get('description')}_")
 
-    st.divider()
+        # ----- Custom Themes -----
+        with theme_subtab2:
+            st.markdown("##### Gespeicherte Custom Themes")
+
+            custom_themes = get_custom_themes()
+
+            if custom_themes:
+                selected = render_theme_gallery(custom_themes, cols_per_row=3, is_custom=True)
+                if selected:
+                    st.rerun()
+
+                st.divider()
+
+                # Delete custom theme
+                theme_to_delete = st.selectbox(
+                    "Theme zum Löschen auswählen",
+                    options=[""] + custom_themes,
+                    format_func=lambda x: "-- Auswählen --" if x == "" else x
+                )
+                if theme_to_delete and st.button("🗑️ Löschen", type="secondary"):
+                    if delete_custom_theme(theme_to_delete):
+                        st.success(f"'{theme_to_delete}' gelöscht!")
+                        st.rerun()
+                    else:
+                        st.error("Fehler beim Löschen")
+            else:
+                st.info("Keine Custom Themes vorhanden. Erstelle eines im 'Theme Designer' Tab.")
+
+        # ----- Custom Theme Designer -----
+        with theme_subtab3:
+            st.markdown("##### Custom Theme Designer")
+            st.caption("Erstelle dein eigenes Farbschema")
+
+            # Load existing theme as starting point
+            col_load1, col_load2 = st.columns(2)
+            with col_load1:
+                base_theme = st.selectbox(
+                    "Basis-Theme laden",
+                    options=[""] + get_all_themes(),
+                    format_func=lambda x: "-- Eigene Farben --" if x == "" else x,
+                    key="base_theme_select"
+                )
+            with col_load2:
+                if base_theme and st.button("Farben laden"):
+                    loaded_theme = get_theme_dict(base_theme)
+                    for key in st.session_state.custom_theme_colors.keys():
+                        if key in loaded_theme:
+                            st.session_state.custom_theme_colors[key] = loaded_theme[key]
+                    st.rerun()
+
+            st.divider()
+
+            # Color pickers organized by category
+            st.markdown("**Hintergrund & Text**")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.session_state.custom_theme_colors["bg"] = st.color_picker(
+                    "Hintergrund", st.session_state.custom_theme_colors["bg"], key="cp_bg"
+                )
+            with col2:
+                st.session_state.custom_theme_colors["text"] = st.color_picker(
+                    "Text", st.session_state.custom_theme_colors["text"], key="cp_text"
+                )
+
+            st.markdown("**Natur**")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.session_state.custom_theme_colors["water"] = st.color_picker(
+                    "Gewässer", st.session_state.custom_theme_colors["water"], key="cp_water"
+                )
+            with col2:
+                st.session_state.custom_theme_colors["parks"] = st.color_picker(
+                    "Parks/Wald", st.session_state.custom_theme_colors["parks"], key="cp_parks"
+                )
+
+            st.markdown("**Straßen**")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.session_state.custom_theme_colors["road_motorway"] = st.color_picker(
+                    "Autobahn", st.session_state.custom_theme_colors["road_motorway"], key="cp_motorway"
+                )
+                st.session_state.custom_theme_colors["road_secondary"] = st.color_picker(
+                    "Nebenstraße", st.session_state.custom_theme_colors["road_secondary"], key="cp_secondary"
+                )
+                st.session_state.custom_theme_colors["road_residential"] = st.color_picker(
+                    "Wohnstraße", st.session_state.custom_theme_colors["road_residential"], key="cp_residential"
+                )
+            with col2:
+                st.session_state.custom_theme_colors["road_primary"] = st.color_picker(
+                    "Hauptstraße", st.session_state.custom_theme_colors["road_primary"], key="cp_primary"
+                )
+                st.session_state.custom_theme_colors["road_tertiary"] = st.color_picker(
+                    "Kleine Straße", st.session_state.custom_theme_colors["road_tertiary"], key="cp_tertiary"
+                )
+                st.session_state.custom_theme_colors["road_default"] = st.color_picker(
+                    "Sonstige", st.session_state.custom_theme_colors["road_default"], key="cp_default"
+                )
+
+            st.markdown("**Gebäude & Wege**")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.session_state.custom_theme_colors["buildings"] = st.color_picker(
+                    "Gebäude (Umriss)", st.session_state.custom_theme_colors["buildings"], key="cp_buildings"
+                )
+                st.session_state.custom_theme_colors["paths"] = st.color_picker(
+                    "Gehwege", st.session_state.custom_theme_colors["paths"], key="cp_paths"
+                )
+            with col2:
+                st.session_state.custom_theme_colors["buildings_fill"] = st.color_picker(
+                    "Gebäude (Füllung)", st.session_state.custom_theme_colors["buildings_fill"], key="cp_buildings_fill"
+                )
+                st.session_state.custom_theme_colors["gradient_color"] = st.color_picker(
+                    "Gradient", st.session_state.custom_theme_colors["gradient_color"], key="cp_gradient"
+                )
+
+            st.divider()
+
+            # Preview current custom colors
+            st.markdown("**Vorschau:**")
+            show_theme_color_bar(st.session_state.custom_theme_colors)
+
+            # Use custom theme toggle
+            use_custom = st.checkbox(
+                "Custom Theme verwenden",
+                value=st.session_state.use_custom_theme,
+                key="use_custom_checkbox"
+            )
+            if use_custom != st.session_state.use_custom_theme:
+                st.session_state.use_custom_theme = use_custom
+                st.rerun()
+
+            st.divider()
+
+            # Save custom theme
+            st.markdown("**Theme speichern**")
+            custom_name = st.text_input(
+                "Theme-Name",
+                placeholder="z.B. mein_theme",
+                key="custom_theme_name"
+            )
+            if st.button("💾 Theme speichern", disabled=not custom_name):
+                # Sanitize name
+                safe_name = "".join(c for c in custom_name if c.isalnum() or c in "_-").lower()
+                if safe_name:
+                    if save_custom_theme(safe_name, st.session_state.custom_theme_colors):
+                        st.success(f"Theme '{safe_name}' gespeichert!")
+                        st.rerun()
+                    else:
+                        st.error("Fehler beim Speichern")
+                else:
+                    st.error("Ungültiger Name")
 
     # ========================================================================
-    # ZOOM / SCALE CONTROL
+    # TAB 2: LOCATION INPUT
     # ========================================================================
-
-    st.markdown("### 🔍 Maßstab / Zoom")
-
-    zoom_preset = st.selectbox(
-        "Zoom-Stufe",
-        options=list(ZOOM_PRESETS.keys()),
-        index=5,  # Default: Mittelstadt
-        help="Wähle passend zur Ortsgröße",
-    )
-
-    # Show preset description
-    preset_info = ZOOM_PRESETS[zoom_preset]
-    st.caption(f"💡 {preset_info['desc']}")
-
-    # Custom distance input or use preset
-    if zoom_preset == "Benutzerdefiniert":
-        distance_m = st.number_input(
-            "Radius in Metern",
-            min_value=100,
-            max_value=50000,
-            value=5000,
-            step=100,
-            help="100m (Haus) bis 50km (Region)",
+    with tab_location:
+        input_mode = st.radio(
+            "Eingabemethode",
+            options=["Adresse / Ortsname", "Direkte Koordinaten"],
+            horizontal=True,
+            help="Koordinaten ermöglichen präzise Positionierung",
         )
-    else:
-        distance_m = preset_info["distance"]
-        # Show the actual distance
-        if distance_m >= 1000:
-            st.caption(f"📏 Kartenradius: {distance_m/1000:.1f} km")
+
+        lat, lon, location_name, country_name = None, None, None, None
+
+        if input_mode == "Adresse / Ortsname":
+            address = st.text_input(
+                "Adresse",
+                placeholder="z.B. Berlin, Deutschland",
+                help="Stadt, Dorf oder Adresse eingeben",
+            )
         else:
-            st.caption(f"📏 Kartenradius: {distance_m} m")
+            st.html(
+                '<a href="https://www.google.com/maps" target="_blank" class="gmaps-link">🌍 Google Maps öffnen</a>'
+            )
 
+            with st.expander("📖 Anleitung", expanded=False):
+                st.markdown("""
+                1. Öffne [Google Maps](https://www.google.com/maps)
+                2. **Rechtsklick** auf den gewünschten Ort
+                3. Klicke auf die Koordinaten (erste Zeile)
+                4. Füge sie hier ein: `52.5174, 13.3951`
+                """)
+
+            coordinates_input = st.text_input(
+                "Koordinaten (Lat, Lon)",
+                placeholder="52.5174, 13.3951",
+            )
+
+            if coordinates_input:
+                parsed = parse_coordinates(coordinates_input)
+                if parsed:
+                    lat, lon = parsed
+                    st.success(f"✅ {lat:.6f}, {lon:.6f}")
+                else:
+                    st.error("❌ Ungültiges Format")
+
+            location_name = st.text_input("Ortsname (für Poster)", placeholder="z.B. Mein Zuhause")
+            country_name = st.text_input("Land (optional)", placeholder="z.B. Deutschland")
+
+        st.divider()
+
+        # Zoom selection
+        st.markdown("##### Maßstab / Zoom")
+        zoom_preset = st.selectbox(
+            "Zoom-Stufe",
+            options=list(ZOOM_PRESETS.keys()),
+            index=5,
+            help="Wähle passend zur Ortsgröße",
+        )
+
+        preset_info = ZOOM_PRESETS[zoom_preset]
+        st.caption(f"💡 {preset_info['desc']}")
+
+        if zoom_preset == "Benutzerdefiniert":
+            distance_m = st.number_input(
+                "Radius in Metern",
+                min_value=100, max_value=50000, value=5000, step=100,
+            )
+        else:
+            distance_m = preset_info["distance"]
+            if distance_m >= 1000:
+                st.caption(f"📏 Kartenradius: {distance_m/1000:.1f} km")
+            else:
+                st.caption(f"📏 Kartenradius: {distance_m} m")
+
+    # ========================================================================
+    # TAB 3: DETAILS & OPTIONS
+    # ========================================================================
+    with tab_details:
+        # Paper format
+        paper_format = st.selectbox(
+            "Papierformat",
+            options=list(PAPER_SIZES.keys()),
+            index=list(PAPER_SIZES.keys()).index(DEFAULT_PAPER_SIZE),
+            help="ISO 216 Standard",
+        )
+
+        st.divider()
+
+        # Font selection
+        st.markdown("##### Schriftart")
+        selected_font = font_selector()
+
+        st.divider()
+
+        # Detail layers
+        st.markdown("##### Detail-Layer")
+        layer_defaults = get_layer_defaults(distance_m)
+        st.caption("💡 Voreinstellungen basieren auf Zoom")
+
+        col_layer1, col_layer2 = st.columns(2)
+        with col_layer1:
+            show_buildings = st.checkbox("Gebäude", value=layer_defaults.get("buildings", False))
+            show_paths = st.checkbox("Wege", value=layer_defaults.get("paths", False))
+            show_landscape = st.checkbox("Landschaft", value=layer_defaults.get("landscape", False))
+            show_waterways = st.checkbox("Gewässer", value=layer_defaults.get("waterways", False))
+
+        with col_layer2:
+            show_railways = st.checkbox("Bahngleise", value=layer_defaults.get("railways", False))
+            show_hedges = st.checkbox("Hecken", value=layer_defaults.get("hedges", False))
+            show_leisure = st.checkbox("Freizeit", value=layer_defaults.get("leisure", False))
+            show_amenities = st.checkbox("Gebäude+", value=layer_defaults.get("amenities", False))
+
+        active_layers = sum([show_buildings, show_paths, show_landscape, show_waterways,
+                           show_railways, show_hedges, show_leisure, show_amenities])
+
+        if distance_m > 4000 and active_layers > 2:
+            st.warning("⚠️ Viele Layer bei großem Maßstab = langsam", icon="⏳")
+
+        st.divider()
+
+        # Text positioning
+        st.markdown("##### Text-Positionierung")
+        col_x, col_y = st.columns(2)
+        with col_x:
+            text_x = st.slider("Horizontal", 0, 100, 50, 5)
+        with col_y:
+            text_y = st.slider("Vertikal", 0, 100, 14, 2)
+
+        col_opts_1, col_opts_2 = st.columns(2)
+        with col_opts_1:
+            show_country = st.checkbox("Land anzeigen", value=True)
+        with col_opts_2:
+            show_coords = st.checkbox("Koordinaten anzeigen", value=True)
+
+    # ========================================================================
+    # GENERATE BUTTON (Outside tabs, always visible)
+    # ========================================================================
     st.divider()
-
-    # ========================================================================
-    # DETAIL LAYERS
-    # ========================================================================
-
-    st.markdown("### 🏘️ Detail-Layer")
-
-    # Get recommended defaults based on zoom level
-    layer_defaults = get_layer_defaults(distance_m)
-
-    st.caption("💡 Voreinstellungen basieren auf Zoom-Stufe")
-
-    col_layer1, col_layer2 = st.columns(2)
-
-    with col_layer1:
-        show_buildings = st.checkbox(
-            "Gebäude",
-            value=layer_defaults.get("buildings", False),
-            help="Gebäudeumrisse anzeigen",
-        )
-        show_paths = st.checkbox(
-            "Wege",
-            value=layer_defaults.get("paths", False),
-            help="Wanderwege, Radwege, Feldwege",
-        )
-        show_landscape = st.checkbox(
-            "Landschaft",
-            value=layer_defaults.get("landscape", False),
-            help="Felder, Wiesen, Wälder",
-        )
-        show_waterways = st.checkbox(
-            "Gewässer",
-            value=layer_defaults.get("waterways", False),
-            help="Bäche, Flüsse, Kanäle",
-        )
-
-    with col_layer2:
-        show_railways = st.checkbox(
-            "Bahngleise",
-            value=layer_defaults.get("railways", False),
-            help="Schienen, Straßenbahn",
-        )
-        show_hedges = st.checkbox(
-            "Hecken",
-            value=layer_defaults.get("hedges", False),
-            help="Hecken, Mauern, Zäune",
-        )
-        show_leisure = st.checkbox(
-            "Freizeit",
-            value=layer_defaults.get("leisure", False),
-            help="Sportplätze, Spielplätze",
-        )
-        show_amenities = st.checkbox(
-            "Gebäude+",
-            value=layer_defaults.get("amenities", False),
-            help="Kirchen, Schulen, Friedhöfe",
-        )
-
-    # Count active layers
-    active_layers = sum([
-        show_buildings, show_paths, show_landscape,
-        show_waterways, show_railways, show_hedges,
-        show_leisure, show_amenities
-    ])
-
-    # Warning for large zoom with many detail layers
-    if distance_m > 4000 and active_layers > 2:
-        st.warning(
-            "⚠️ Viele Detail-Layer bei großem Maßstab können die Generierung verlangsamen.",
-            icon="⏳"
-        )
-
-    st.divider()
-
-    # ========================================================================
-    # TEXT POSITIONING
-    # ========================================================================
-
-    st.markdown("### 📝 Text-Positionierung")
-
-    # Text Position Sliders
-    col_x, col_y = st.columns(2)
-
-    with col_x:
-        text_x = st.slider(
-            "Horizontal",
-            min_value=0,
-            max_value=100,
-            value=50,
-            step=5,
-            help="0 = links, 50 = mitte, 100 = rechts",
-        )
-
-    with col_y:
-        text_y = st.slider(
-            "Vertikal",
-            min_value=0,
-            max_value=100,
-            value=14,
-            step=2,
-            help="0 = unten, 50 = mitte, 100 = oben",
-        )
-
-    st.caption(f"Position: ({text_x}%, {text_y}%)")
-
-    # Text Options
-    col_opts_1, col_opts_2 = st.columns(2)
-    with col_opts_1:
-        show_country = st.checkbox("Land anzeigen", value=True)
-    with col_opts_2:
-        show_coords = st.checkbox("Koordinaten anzeigen", value=True)
-
-    st.divider()
-
-    # ========================================================================
-    # GENERATE BUTTON
-    # ========================================================================
 
     if st.button("🎨 Poster generieren", type="primary", use_container_width=True):
-
-        # Validate input based on mode
+        # Validate input
         if input_mode == "Adresse / Ortsname":
             if not address:
                 st.error("Bitte eine Adresse eingeben.")
                 st.stop()
 
-            with st.spinner("🌍 Geocoding Adresse..."):
+            with st.spinner("🌍 Geocoding..."):
                 try:
                     lat, lon, formatted_address = geocode_address(address)
                     location_name = formatted_address.split(",")[0].strip()
@@ -725,27 +905,37 @@ with col_input:
                 except Exception as e:
                     st.error(f"Geocoding fehlgeschlagen: {e}")
                     st.stop()
-
-        else:  # Coordinates mode
+        else:
             if lat is None or lon is None:
                 st.error("Bitte gültige Koordinaten eingeben.")
                 st.stop()
-
             if not location_name:
-                st.warning("Kein Ortsname angegeben - verwende 'Custom Location'")
                 location_name = "Custom Location"
-
             if not country_name:
                 country_name = ""
+
+        # Determine theme to use
+        if st.session_state.use_custom_theme:
+            theme_name = "__custom__"
+            theme_colors = st.session_state.custom_theme_colors.copy()
+        else:
+            theme_name = st.session_state.selected_theme
+            # Check if it's a custom saved theme
+            if theme_name in get_custom_themes():
+                theme_colors = load_custom_theme(theme_name)
+            else:
+                theme_colors = None
 
         # Generate poster
         with st.spinner("🗺️ Karte wird generiert..."):
             try:
-                generator = PosterGenerator(theme_name=theme_name, font_id=selected_font)
+                if theme_colors:
+                    generator = PosterGenerator(theme_name="feature_based", font_id=selected_font)
+                    generator.theme = theme_colors
+                else:
+                    generator = PosterGenerator(theme_name=theme_name, font_id=selected_font)
 
-                # Convert slider to axes coords
                 text_x_coord, text_y_coord = slider_to_axes_coords(text_x, text_y)
-
                 text_config = {
                     "x": text_x_coord,
                     "y": text_y_coord,
@@ -754,7 +944,6 @@ with col_input:
                     "show_country": show_country and bool(country_name),
                 }
 
-                # Layer visibility settings
                 layer_config = {
                     "buildings": show_buildings,
                     "paths": show_paths,
@@ -781,7 +970,7 @@ with col_input:
                 st.session_state.current_config = {
                     "city": location_name,
                     "country": country_name or "",
-                    "theme": theme_name,
+                    "theme": theme_name if not st.session_state.use_custom_theme else "Custom",
                     "paper_format": paper_format,
                     "distance_m": distance_m,
                     "lat": lat,
@@ -801,161 +990,85 @@ with col_input:
 # ============================================================================
 
 with col_preview:
-    st.markdown("### 🖼️ Vorschau")
+    st.markdown("### Vorschau")
 
     if st.session_state.generated_figure is not None:
-        # Display figure using a temporary buffer to avoid display issues
-        import io
         buf = io.BytesIO()
         st.session_state.generated_figure.savefig(buf, format="png", bbox_inches='tight', dpi=150)
         buf.seek(0)
-
-        from PIL import Image
         img = Image.open(buf)
-
-        st.image(img, caption="", use_container_width=True)
+        st.image(img, use_container_width=True)
         buf.close()
 
-        # Show current config
         if st.session_state.current_config:
             cfg = st.session_state.current_config
             dist = cfg.get("distance_m", 0)
             dist_str = f"{dist/1000:.1f} km" if dist >= 1000 else f"{dist} m"
-            st.caption(
-                f"📍 {cfg.get('city', '')} | "
-                f"🎨 {cfg.get('theme', '')} | "
-                f"📏 {dist_str}"
-            )
+            st.caption(f"📍 {cfg.get('city', '')} | 🎨 {cfg.get('theme', '')} | 📏 {dist_str}")
 
-        # Download buttons
-        st.markdown("#### Download-Optionen")
-
+        st.markdown("#### Download")
         col_dl1, col_dl2, col_dl3 = st.columns(3)
 
         with col_dl1:
-            png_data = download_button(
-                st.session_state.generated_figure,
-                "png",
-                "poster.png",
-            )
-            st.download_button(
-                "📥 PNG (300 DPI)",
-                data=png_data,
-                file_name="poster.png",
-                mime="image/png",
-                use_container_width=True,
-            )
+            png_data = download_button(st.session_state.generated_figure, "png", "poster.png")
+            st.download_button("📥 PNG (300 DPI)", data=png_data, file_name="poster.png",
+                             mime="image/png", use_container_width=True)
 
         with col_dl2:
-            svg_data = download_button(
-                st.session_state.generated_figure,
-                "svg",
-                "poster.svg",
-            )
-            st.download_button(
-                "📥 SVG Vektor",
-                data=svg_data,
-                file_name="poster.svg",
-                mime="image/svg+xml",
-                use_container_width=True,
-            )
+            svg_data = download_button(st.session_state.generated_figure, "svg", "poster.svg")
+            st.download_button("📥 SVG Vektor", data=svg_data, file_name="poster.svg",
+                             mime="image/svg+xml", use_container_width=True)
 
         with col_dl3:
-            pdf_data = download_button(
-                st.session_state.generated_figure,
-                "pdf",
-                "poster.pdf",
-            )
-            st.download_button(
-                "📥 PDF",
-                data=pdf_data,
-                file_name="poster.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
-
+            pdf_data = download_button(st.session_state.generated_figure, "pdf", "poster.pdf")
+            st.download_button("📥 PDF", data=pdf_data, file_name="poster.pdf",
+                             mime="application/pdf", use_container_width=True)
     else:
-        st.info(
-            "Konfiguriere die Einstellungen und klicke '🎨 Poster generieren'",
-            icon="ℹ️",
-        )
+        st.info("Konfiguriere die Einstellungen und klicke '🎨 Poster generieren'", icon="ℹ️")
 
-        # Show example workflow
-        with st.expander("💡 Beispiel-Workflow", expanded=True):
+        with st.expander("💡 Schnellstart", expanded=True):
             st.markdown("""
-            **Für eine Großstadt (z.B. Berlin):**
-            1. Wähle "Adresse / Ortsname"
-            2. Eingabe: `Berlin, Deutschland`
-            3. Zoom: `Großstadt` (15 km)
+            **1. Theme wählen** - Klicke auf ein Theme in der Galerie
 
-            **Für ein kleines Dorf (z.B. Wettmar):**
-            1. Wähle "Adresse / Ortsname"
-            2. Eingabe: `Wettmar, Deutschland`
-            3. Zoom: `Kleines Dorf` (1 km)
+            **2. Standort eingeben** - Stadt/Adresse oder GPS-Koordinaten
 
-            **Für einen exakten Ort (z.B. dein Haus):**
-            1. Wähle "Direkte Koordinaten"
-            2. Öffne Google Maps, Rechtsklick → Koordinaten
-            3. Füge ein: `52.1234, 9.5678`
-            4. Zoom: `Nachbarschaft` (500 m)
+            **3. Zoom einstellen** - Von Haus (200m) bis Metropole (30km)
+
+            **4. Generieren** - Klicke den Button!
             """)
 
 # ============================================================================
-# COLUMN 3: HISTORY & CONTROLS
+# COLUMN 3: HISTORY & INFO
 # ============================================================================
 
 with col_history:
-    st.markdown("### 📊 Verlauf")
+    st.markdown("### Verlauf")
 
     if st.session_state.generation_history:
-        st.caption(f"Generierte Poster: {len(st.session_state.generation_history)}")
+        st.caption(f"Erstellt: {len(st.session_state.generation_history)}")
 
         for item in reversed(st.session_state.generation_history[-5:]):
-            with st.expander(
-                f"📍 {item['city']} — {item['timestamp']}",
-                expanded=False,
-            ):
+            with st.expander(f"📍 {item['city']}", expanded=False):
                 st.image(item["thumbnail"])
+                st.caption(f"{item['timestamp']} | {item['theme']}")
 
-                col_reload, col_info = st.columns(2)
-
-                with col_reload:
-                    if st.button("🔄 Laden", key=f"reload_{item['id']}"):
-                        config = item["config"]
-                        st.session_state.current_config = config
-                        st.info("Konfiguration geladen!")
-
-                with col_info:
-                    st.caption(f"Theme: {item['theme']}")
-
+                if st.button("🔄 Laden", key=f"reload_{item['id']}"):
+                    config = item["config"]
+                    st.session_state.current_config = config
+                    st.info("Konfiguration geladen!")
     else:
-        st.info(
-            "Deine generierten Poster erscheinen hier.",
-            icon="ℹ️",
-        )
-
-    st.divider()
-
-    # Quick Stats
-    st.markdown("#### Statistiken")
-    st.metric("Poster erstellt", len(st.session_state.generation_history))
+        st.info("Deine Poster erscheinen hier.", icon="ℹ️")
 
     st.divider()
 
     st.markdown("#### Zoom-Referenz")
     st.caption("""
-    • **200m** - Einzelnes Gebäude
+    • **200m** - Gebäude
     • **500m** - Nachbarschaft
     • **1km** - Kleines Dorf
-    • **2km** - Größeres Dorf
+    • **2km** - Dorf
     • **4km** - Kleinstadt
     • **8km** - Mittelstadt
     • **15km** - Großstadt
-    • **30km** - Metropolregion
+    • **30km** - Metropole
     """)
-
-    st.markdown("#### Info")
-    st.caption(
-        "CityMaps nutzt OpenStreetMap-Daten. "
-        "Alle Karten sind vektorbasiert und daher immer hochauflösend."
-    )
