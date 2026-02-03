@@ -221,23 +221,43 @@ DETAIL_LAYER_TAGS = {
     "waterways": {"waterway": ["stream", "river", "canal", "ditch", "drain"]},
     "railways": {"railway": ["rail", "tram", "light_rail", "narrow_gauge"]},
     "hedges": {"barrier": ["hedge", "fence", "wall"]},
-    "leisure": {"leisure": ["pitch", "playground", "garden", "sports_centre"]},
+    "leisure": {"leisure": ["pitch", "playground", "garden", "sports_centre", "park"]},
     "amenities": {"amenity": ["place_of_worship", "school", "cemetery"]},
+    # New detail layers for close-up maps
+    "trees": {"natural": ["tree", "tree_row"]},
+    "parking": {"amenity": ["parking", "parking_space"]},
+    "landuse_detailed": {
+        "landuse": ["residential", "commercial", "industrial", "retail", "farmyard", "greenhouse"],
+    },
+    "water_details": {
+        "amenity": ["fountain"],
+        "leisure": ["swimming_pool"],
+        "man_made": ["water_well"],
+    },
+    "pois": {
+        "amenity": ["restaurant", "cafe", "bar", "fast_food", "pub"],
+        "shop": True,
+    },
 }
 
 # Z-order for rendering layers (higher = on top)
 LAYER_ZORDER = {
-    "landscape": 0,
+    "landuse_detailed": 0.3,
+    "landscape": 0.5,
+    "parking": 0.8,
     "water": 1,
     "waterways": 1.5,
+    "water_details": 1.8,
     "parks": 2,
     "leisure": 2.5,
     "amenities": 2.8,
     "buildings": 3,
     "hedges": 3.5,
+    "trees": 3.8,
     "paths": 4,
     "railways": 4.5,
     "roads": 5,
+    "pois": 6,
     "gradients": 10,
     "text": 11,
 }
@@ -249,6 +269,8 @@ DETAIL_LAYER_LINEWIDTHS = {
     "waterways": 0.5,
     "railways": 0.6,
     "hedges": 0.2,
+    "landuse_edge": 0.15,
+    "parking_edge": 0.1,
 }
 
 # ============================================================================
@@ -331,4 +353,21 @@ DEFAULT_THEME_COLORS = {
     "leisure": "#C5E1A5",
     "amenities": "#E0E0E0",
     "amenities_edge": "#808080",
+    # Enhanced detail colors for close-up maps
+    "tree": "#4A7C59",
+    "tree_deciduous": "#6B8E23",
+    "tree_coniferous": "#228B22",
+    "parking": "#F0F0F0",
+    "parking_underground": "#D0D0D0",
+    "landuse_residential": "#F5F5F5",
+    "landuse_commercial": "#FFE4CC",
+    "landuse_industrial": "#D3D3D3",
+    "landuse_retail": "#FFE4B5",
+    "landuse_farmyard": "#DEB887",
+    "landuse_greenhouse": "#98FB98",
+    "fountain": "#87CEEB",
+    "swimming_pool": "#00CED1",
+    "water_well": "#4682B4",
+    "poi_food": "#FF6B6B",
+    "poi_shop": "#6BCB77",
 }

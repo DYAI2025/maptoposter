@@ -750,6 +750,71 @@ class PosterGenerator:
             "hedges": False,
             "leisure": False,
             "amenities": False,
+            "forests": False,
+            "farmland": False,
+            "meadows": False,
+            "beaches": False,
+            "sand": False,
+            "grass": False,
+            "retail": False,
+            "industrial": False,
+            "residential": False,
+            "commercial": False,
+            "parking": False,
+            "sports_pitches": False,
+            "golf_courses": False,
+            "airports": False,
+            "heliports": False,
+            "runways": False,
+            "taxiways": False,
+            "aeroways": False,
+            "bridges": False,
+            "tunnels": False,
+            "fords": False,
+            "piers": False,
+            "docks": False,
+            "marinas": False,
+            "breakwaters": False,
+            "groynes": False,
+            "weirs": False,
+            "dams": False,
+            "locks": False,
+            "canals": False,
+            "rivers": False,
+            "streams": False,
+            "lakes": False,
+            "reservoirs": False,
+            "ponds": False,
+            "swimming_pools": False,
+            "fountains": False,
+            "water_towers": False,
+            "water_works": False,
+            "power_plants": False,
+            "substations": False,
+            "wind_turbines": False,
+            "solar_panels": False,
+            "quarries": False,
+            "mines": False,
+            "landfills": False,
+            "wastewater_plants": False,
+            "sewage_treatment_plants": False,
+            "cemeteries": False,
+            "churches": False,
+            "mosques": False,
+            "synagogues": False,
+            "temples": False,
+            "shrines": False,
+            "monuments": False,
+            "memorials": False,
+            "statues": False,
+            "artwork": False,
+            "benches": False,
+            "street_lamps": False,
+            "waste_baskets": False,
+            "post_boxes": False,
+            "fire_hydrants": False,
+            "telecom_masts": False,
+            "communication_towers": False,
         }
 
         if distance_m <= LAYER_ZOOM_THRESHOLDS["all_on"]:
@@ -760,14 +825,64 @@ class PosterGenerator:
             all_layers["buildings"] = True
             all_layers["waterways"] = True
             all_layers["railways"] = True
+            all_layers["leisure"] = True
+            all_layers["amenities"] = True
+            all_layers["forests"] = True
+            all_layers["meadows"] = True
+            all_layers["grass"] = True
+            all_layers["retail"] = True
+            all_layers["residential"] = True
+            all_layers["commercial"] = True
+            all_layers["parking"] = True
+            all_layers["sports_pitches"] = True
+            all_layers["golf_courses"] = True
+            all_layers["cemeteries"] = True
+            all_layers["churches"] = True
+            all_layers["mosques"] = True
+            all_layers["synagogues"] = True
+            all_layers["temples"] = True
+            all_layers["shrines"] = True
+            all_layers["monuments"] = True
+            all_layers["memorials"] = True
+            all_layers["statues"] = True
+            all_layers["artwork"] = True
+            all_layers["benches"] = True
+            all_layers["street_lamps"] = True
+            all_layers["waste_baskets"] = True
+            all_layers["post_boxes"] = True
+            all_layers["fire_hydrants"] = True
+            all_layers["telecom_masts"] = True
+            all_layers["communication_towers"] = True
+            return all_layers
+        elif distance_m <= LAYER_ZOOM_THRESHOLDS["water_rail_only"]:
+            # City zoom (<=16km): waterways, railways, airports, industrial, power plants
+            all_layers["waterways"] = True
+            all_layers["railways"] = True
+            all_layers["airports"] = True
+            all_layers["industrial"] = True
+            all_layers["power_plants"] = True
+            all_layers["substations"] = True
+            all_layers["wind_turbines"] = True
+            all_layers["solar_panels"] = True
+            all_layers["quarries"] = True
+            all_layers["mines"] = True
+            all_layers["landfills"] = True
+            all_layers["wastewater_plants"] = True
+            all_layers["sewage_treatment_plants"] = True
             return all_layers
         else:
-            # City zoom (>8km): no detail layers
+            # Regional zoom (>16km): only major water and transport features
+            all_layers["waterways"] = True
+            all_layers["railways"] = True
+            all_layers["airports"] = True
+            all_layers["rivers"] = True
+            all_layers["lakes"] = True
+            all_layers["reservoirs"] = True
+            all_layers["canals"] = True
             return all_layers
 
     def get_layer_color(self, layer_key: str, fallback_key: str = None) -> str:
         """
-        Get color for a layer from theme, with fallback.
 
         Args:
             layer_key: Primary key to look up

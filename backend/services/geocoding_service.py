@@ -185,7 +185,7 @@ class GeocodingService(BaseService):
             logger.debug(f"Cache hit for address: {address}")
             return self._cache[address]
         
-logger.info(f"Geocoding address: {address}")
+        logger.info(f"Geocoding address: {address}")
         
         # Try primary provider
         result = await self.primary_provider.geocode(address)
