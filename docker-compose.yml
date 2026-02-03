@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # FastAPI Backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: maptoposter-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - ./modules:/app/modules
+      - ./themes:/app/themes
+      - ./fonts:/app/fonts
+      - ./config.yaml:/app/config.yaml
+      - ./posters:/app/posters
+    environment:
+      - PYTHONUNBUFFERED=1
+      - APP_DEBUG=false
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - maptoposter-network
+
+  # Redis Cache (Optional)
+  redis:
+    image: redis:7-alpine
+    container_name: maptoposter-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - maptoposter-network
+    profiles:
+      - with-cache
+
+  # Nginx (Serve Widget)
+  nginx:
+    image: nginx:alpine
+    container_name: maptoposter-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./frontend/widget:/usr/share/nginx/html
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - maptoposter-network
+
+networks:
+  maptoposter-network:
+    driver: bridge
+
+volumes:
+  redis-data:

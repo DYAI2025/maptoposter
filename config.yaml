@@ -1,0 +1,90 @@
+# MapToPoster - Application Configuration
+
+app:
+  name: "MapToPoster API"
+  version: "2.0.0"
+  debug: false
+  api_prefix: "/api/v1"
+  host: "0.0.0.0"
+  port: 8000
+
+# Rate Limiting
+rate_limit:
+  enabled: true
+  requests_per_minute: 60
+  burst: 10
+
+# CORS Configuration
+cors:
+  enabled: true
+  origins:
+    - "*"  # Change to specific domains in production
+  methods:
+    - "GET"
+    - "POST"
+
+# Service Configuration
+services:
+  # Core Services (always enabled in minimal setup)
+  
+  geocoding:
+    enabled: true
+    provider: "nominatim"
+    user_agent: "MapToPoster/2.0"
+    cache_ttl: 86400  # 24 hours
+    # google_api_key: "${GOOGLE_API_KEY}"  # Optional fallback
+  
+  generator:
+    enabled: true
+    default_theme: "feature_based"
+    max_distance: 50000  # Maximum 50km radius
+    default_dpi: 300
+  
+  themes:
+    enabled: true
+    allow_custom: true
+    max_custom_themes: 10
+  
+  export:
+    enabled: true
+    formats:
+      - "png"
+      - "svg"
+      - "pdf"
+    max_file_size_mb: 50
+  
+  # Optional Services (plugins)
+  
+  cache:
+    enabled: false
+    provider: "redis"
+    redis_url: "${REDIS_URL}"
+    default_ttl: 3600
+  
+  storage:
+    enabled: false
+    provider: "s3"
+    bucket: "${S3_BUCKET}"
+    region: "eu-central-1"
+    access_key: "${AWS_ACCESS_KEY_ID}"
+    secret_key: "${AWS_SECRET_ACCESS_KEY}"
+  
+  payment:
+    enabled: false
+    provider: "stripe"
+    stripe_key: "${STRIPE_SECRET_KEY}"
+    webhook_secret: "${STRIPE_WEBHOOK_SECRET}"
+    prices:
+      a4: 2900  # €29.00 in cents
+      a3: 4900
+      a2: 7900
+  
+  print:
+    enabled: false
+    provider: "printful"
+    api_key: "${PRINTFUL_API_KEY}"
+  
+  analytics:
+    enabled: false
+    provider: "custom"
+    tracking_id: "${ANALYTICS_TRACKING_ID}"
