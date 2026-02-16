@@ -102,6 +102,42 @@ st.html(
         font-weight: 600;
         color: var(--text-dark);
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 0.95rem;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Text input styling */
+    .stTextInput > div > div > input {
+        font-size: 1rem !important;
+        padding: 0.75rem !important;
+        border: 2px solid #d0d0d0 !important;
+        border-radius: 6px !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .stTextInput > div > div > input:focus {
+        border-color: var(--primary-blue) !important;
+        box-shadow: 0 0 0 3px rgba(26, 58, 82, 0.1) !important;
+    }
+
+    .stTextInput > div > div > input::placeholder {
+        color: #999 !important;
+        font-size: 0.95rem !important;
+    }
+
+    /* Selectbox styling */
+    .stSelectbox > div > div > select,
+    .stSelectbox > div > div > div {
+        font-size: 1rem !important;
+        padding: 0.75rem !important;
+        border-radius: 6px !important;
+    }
+
+    /* Number input styling */
+    .stNumberInput > div > div > input {
+        font-size: 1rem !important;
+        padding: 0.75rem !important;
+        border-radius: 6px !important;
     }
 
     /* Button styling */
@@ -200,8 +236,42 @@ st.html(
     }
 
     .stTabs [data-baseweb="tab"] {
-        padding: 8px 16px;
+        padding: 10px 18px;
         font-weight: 600;
+        font-size: 0.95rem;
+    }
+
+    /* Slider styling */
+    .stSlider > div > div > div {
+        padding: 1rem 0.5rem;
+    }
+
+    /* Color picker styling */
+    .stColorPicker > div > div > div > input {
+        height: 48px !important;
+        border-radius: 6px !important;
+        border: 2px solid #d0d0d0 !important;
+        cursor: pointer !important;
+    }
+
+    .stColorPicker > div > div > div > input:hover {
+        border-color: var(--primary-blue) !important;
+    }
+
+    /* Checkbox and Radio styling */
+    .stCheckbox > label, .stRadio > label {
+        font-size: 0.95rem !important;
+        padding: 0.25rem 0 !important;
+    }
+
+    /* Improve spacing for form groups */
+    .stTextInput, .stSelectbox, .stNumberInput, .stSlider {
+        margin-bottom: 1.25rem;
+    }
+
+    /* Search input specific styling */
+    .stTextInput[data-testid*="search"] input {
+        background-color: #fafafa !important;
     }
     </style>
     """
@@ -346,19 +416,30 @@ def show_theme_color_bar(theme_dict: dict) -> None:
     ]
 
     html = '''
-    <div style="display: flex; gap: 4px; margin: 0.5rem 0; align-items: center;">
+    <div style="display: flex; gap: 8px; margin: 0.75rem 0; align-items: flex-start; flex-wrap: wrap;">
     '''
     for label, color in colors:
         html += f'''
-        <div style="display: flex; flex-direction: column; align-items: center;">
+        <div style="display: flex; flex-direction: column; align-items: center; min-width: 50px;">
             <div style="
-                width: 32px;
-                height: 32px;
+                width: 44px;
+                height: 44px;
                 background-color: {color};
-                border: 1px solid rgba(0,0,0,0.2);
-                border-radius: 4px;
+                border: 2px solid rgba(0,0,0,0.15);
+                border-radius: 6px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             " title="{label}: {color}"></div>
-            <span style="font-size: 0.6rem; color: #666; margin-top: 2px;">{label}</span>
+            <span style="
+                font-size: 0.7rem; 
+                color: #555; 
+                margin-top: 4px; 
+                font-weight: 500;
+                text-align: center;
+                white-space: nowrap;
+                max-width: 50px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            ">{label}</span>
         </div>
         '''
     html += '</div>'
@@ -584,7 +665,7 @@ with col_input:
                 filtered_themes = all_themes
 
             if filtered_themes:
-                selected = render_theme_gallery(filtered_themes, cols_per_row=3)
+                selected = render_theme_gallery(filtered_themes, cols_per_row=2)
                 if selected:
                     st.rerun()
             else:
@@ -606,7 +687,7 @@ with col_input:
             custom_themes = get_custom_themes()
 
             if custom_themes:
-                selected = render_theme_gallery(custom_themes, cols_per_row=3, is_custom=True)
+                selected = render_theme_gallery(custom_themes, cols_per_row=2, is_custom=True)
                 if selected:
                     st.rerun()
 

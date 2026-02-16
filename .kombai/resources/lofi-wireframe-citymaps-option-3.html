@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CityMaps Wireframe - Option 3: Dashboard Grid</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Comic Sans MS', cursive;
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        /* Top Bar */
+        .top-bar {
+            background: white;
+            border-bottom: 3px solid #000;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+        .top-actions {
+            display: flex;
+            gap: 15px;
+        }
+        .btn-icon {
+            width: 45px;
+            height: 45px;
+            border: 2px solid #000;
+            border-radius: 4px;
+            background: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: 2px solid #000;
+            border-radius: 4px;
+            background: white;
+            font-family: 'Comic Sans MS', cursive;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-primary {
+            background: #333;
+            color: white;
+        }
+        
+        /* Dashboard Layout */
+        .dashboard {
+            padding: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1.2fr 0.8fr;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+            height: calc(100vh - 85px);
+        }
+        
+        /* Card Container */
+        .card {
+            background: white;
+            border: 3px solid #000;
+            border-radius: 8px;
+            padding: 20px;
+            overflow: auto;
+        }
+        .card-header {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ccc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .card-icon {
+            font-size: 1.5rem;
+        }
+        
+        /* Theme Gallery Card - spans 3 columns */
+        .theme-gallery {
+            grid-column: 1 / -1;
+        }
+        .theme-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .theme-card {
+            border: 2px solid #999;
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            background: #f9f9f9;
+            transition: all 0.2s;
+        }
+        .theme-card:hover {
+            border-color: #333;
+            transform: translateY(-2px);
+        }
+        .theme-card.selected {
+            border-color: #333;
+            border-width: 3px;
+            background: white;
+        }
+        .theme-preview {
+            width: 100%;
+            height: 100px;
+            background: #e0e0e0;
+            border: 1px solid #999;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: #666;
+        }
+        .theme-name {
+            font-weight: bold;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+        
+        /* Configuration Card */
+        .config-card {
+            grid-column: 1;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+            font-size: 0.95rem;
+        }
+        .form-input, .form-select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #999;
+            border-radius: 4px;
+            font-family: 'Comic Sans MS', cursive;
+            font-size: 0.95rem;
+            background: white;
+        }
+        
+        /* Preview Card */
+        .preview-card {
+            grid-column: 2;
+            display: flex;
+            flex-direction: column;
+        }
+        .preview-area {
+            flex: 1;
+            background: #e0e0e0;
+            border: 2px solid #999;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            margin-bottom: 15px;
+            min-height: 400px;
+        }
+        .preview-controls {
+            display: flex;
+            gap: 10px;
+        }
+        .preview-controls button {
+            flex: 1;
+        }
+        .preview-info {
+            margin-top: 10px;
+            padding: 12px;
+            background: #f9f9f9;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        /* Details & History */
+        .details-card {
+            grid-column: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .details-section {
+            border: 2px dashed #999;
+            border-radius: 6px;
+            padding: 15px;
+            background: #f9f9f9;
+        }
+        .details-section h4 {
+            margin-bottom: 12px;
+            font-size: 1rem;
+        }
+        .checkbox-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px;
+        }
+        
+        /* Quick Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .stat-box {
+            padding: 12px;
+            background: white;
+            border: 2px solid #999;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .stat-label {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        /* History Items */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .history-item {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+        }
+        .history-item:hover {
+            background: #f9f9f9;
+        }
+        .history-thumb {
+            width: 60px;
+            height: 80px;
+            background: #e0e0e0;
+            border: 1px solid #999;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .history-info {
+            flex: 1;
+        }
+        .history-title {
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+        .history-meta {
+            font-size: 0.75rem;
+            color: #666;
+        }
+        
+        /* Component Tags */
+        .badge {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            z-index: 10;
+            color: white;
+        }
+        .badge-reuse {
+            background: #4CAF50;
+        }
+        .badge-new {
+            background: #FF9800;
+        }
+        
+        .hint {
+            color: #666;
+            font-size: 0.8rem;
+            margin-top: 6px;
+        }
+        
+        /* Search Bar */
+        .search-bar {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #999;
+            border-radius: 4px;
+            font-family: 'Comic Sans MS', cursive;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <div class="top-bar">
+        <div class="logo">🗺️ CityMaps Dashboard</div>
+        <div class="top-actions">
+            <!-- REUSABLE: Streamlit button widgets as icons -->
+            <div style="position: relative; display: inline-block;">
+                <span class="badge badge-reuse" title="Streamlit st.button">[REUSE] Button</span>
+                <button class="btn-icon" title="Help">?</button>
+            </div>
+            <div style="position: relative; display: inline-block;">
+                <span class="badge badge-reuse" title="Streamlit st.button">[REUSE] Button</span>
+                <button class="btn-icon" title="Settings">⚙️</button>
+            </div>
+            <div style="position: relative; display: inline-block;">
+                <span class="badge badge-reuse" title="Streamlit st.button">[REUSE] Button</span>
+                <button class="btn btn-primary">🎨 Generate Poster</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Dashboard Grid -->
+    <div class="dashboard">
+        
+        <!-- Theme Gallery - Full Width -->
+        <div class="card theme-gallery">
+            <div class="card-header">
+                <span><span class="card-icon">🎨</span> Theme Gallery</span>
+                <!-- REUSABLE: Streamlit text_input as search -->
+                <div style="position: relative; display: inline-block;">
+                    <span class="badge badge-reuse" title="Streamlit st.text_input">[REUSE] TextInput</span>
+                    <input type="text" placeholder="Search themes..." style="width: 250px; padding: 8px; border: 2px solid #ccc; border-radius: 4px;">
+                </div>
+            </div>
+            
+            <div class="theme-grid">
+                <div class="theme-card selected">
+                    <div class="theme-preview">[Preview]</div>
+                    <div class="theme-name">Noir</div>
+                </div>
+                <div class="theme-card">
+                    <div class="theme-preview">[Preview]</div>
+                    <div class="theme-name">Blueprint</div>
+                </div>
+                <div class="theme-card">
+                    <div class="theme-preview">[Preview]</div>
+                    <div class="theme-name">Midnight</div>
+                </div>
+                <div class="theme-card">
+                    <div class="theme-preview">[Preview]</div>
+                    <div class="theme-name">Neon</div>
+                </div>
+                <div class="theme-card">
+                    <div class="theme-preview">[Preview]</div>
+                    <div class="theme-name">Sunset</div>
+                </div>
+                <div class="theme-card">
+                    <div class="theme-preview">[Preview]</div>
+                    <div class="theme-name">Forest</div>
+                </div>
+                <div class="theme-card">
+                    <div class="theme-preview">[Preview]</div>
+                    <div class="theme-name">Ocean</div>
+                </div>
+                <div class="theme-card">
+                    <div class="theme-preview">[Preview]</div>
+                    <div class="theme-name">Terracotta</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Configuration Panel -->
+        <div class="card config-card">
+            <div class="card-header">
+                <span class="card-icon">📍</span> Configuration
+            </div>
+            
+            <div class="form-group">
+                <!-- REUSABLE: Streamlit text_input -->
+                <div style="position: relative;">
+                    <span class="badge badge-reuse" title="Streamlit st.text_input">[REUSE] TextInput</span>
+                    <label>Location</label>
+                    <input type="text" class="form-input" placeholder="City or Address">
+                    <p class="hint">💡 Or enter GPS coordinates</p>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <!-- REUSABLE: Streamlit selectbox -->
+                <div style="position: relative;">
+                    <span class="badge badge-reuse" title="Streamlit st.selectbox">[REUSE] SelectBox</span>
+                    <label>Zoom Preset</label>
+                    <select class="form-select">
+                        <option>500m - Neighborhood</option>
+                        <option>1km - Small Village</option>
+                        <option>2km - Village/District</option>
+                        <option>4km - Small Town</option>
+                        <option selected>8km - Medium City</option>
+                        <option>15km - Large City</option>
+                        <option>30km - Metropolitan</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- NEW COMPONENT: Quick Stats Dashboard -->
+            <div style="position: relative;">
+                <span class="badge badge-new" title="To be created at components/StatsGrid.py">[NEW] StatsGrid</span>
+                <div class="details-section">
+                    <h4>Map Statistics</h4>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <div class="stat-value">~2.4k</div>
+                            <div class="stat-label">Roads</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">128</div>
+                            <div class="stat-label">Buildings</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <!-- REUSABLE: Streamlit selectbox -->
+                <div style="position: relative;">
+                    <span class="badge badge-reuse" title="Streamlit st.selectbox">[REUSE] SelectBox</span>
+                    <label>Paper Format</label>
+                    <select class="form-select">
+                        <option>A3 (297 × 420 mm)</option>
+                        <option selected>A4 (210 × 297 mm)</option>
+                        <option>A5 (148 × 210 mm)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <!-- REUSABLE: Streamlit selectbox -->
+                <div style="position: relative;">
+                    <span class="badge badge-reuse" title="Streamlit st.selectbox">[REUSE] SelectBox</span>
+                    <label>Font Style</label>
+                    <select class="form-select">
+                        <option selected>Roboto - Clean Sans</option>
+                        <option>Playfair - Elegant Serif</option>
+                        <option>Courier - Typewriter</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Live Preview Panel -->
+        <div class="card preview-card">
+            <div class="card-header">
+                <span class="card-icon">👁️</span> Live Preview
+            </div>
+            
+            <!-- REUSABLE: Matplotlib figure display -->
+            <div style="position: relative;">
+                <span class="badge badge-reuse" title="Streamlit st.pyplot or st.image">[REUSE] ImageDisplay</span>
+                <div class="preview-area">
+                    <div style="font-size: 3rem; margin-bottom: 15px;">🗺️</div>
+                    <div style="font-size: 1.1rem; color: #666;">Your poster will appear here</div>
+                    <div style="font-size: 0.9rem; color: #999; margin-top: 10px;">Configure settings and click Generate</div>
+                </div>
+            </div>
+            
+            <div class="preview-controls">
+                <!-- REUSABLE: Streamlit download_button widgets -->
+                <div style="position: relative; flex: 1;">
+                    <span class="badge badge-reuse" title="Streamlit st.download_button">[REUSE] DownloadBtn</span>
+                    <button class="btn" style="width: 100%;">📥 PNG</button>
+                </div>
+                <div style="position: relative; flex: 1;">
+                    <span class="badge badge-reuse" title="Streamlit st.download_button">[REUSE] DownloadBtn</span>
+                    <button class="btn" style="width: 100%;">📥 SVG</button>
+                </div>
+                <div style="position: relative; flex: 1;">
+                    <span class="badge badge-reuse" title="Streamlit st.download_button">[REUSE] DownloadBtn</span>
+                    <button class="btn" style="width: 100%;">📥 PDF</button>
+                </div>
+            </div>
+            
+            <div class="preview-info">
+                <strong>Current Selection:</strong><br>
+                📍 Location: Berlin, Germany<br>
+                🎨 Theme: Noir<br>
+                📏 Radius: 8.0 km<br>
+                📄 Format: A4
+            </div>
+        </div>
+        
+        <!-- Details & History Panel -->
+        <div class="details-card">
+            <!-- Map Layers Section -->
+            <div style="position: relative;">
+                <span class="badge badge-new" title="To be created at components/LayerToggle.py">[NEW] LayerToggle</span>
+                <div class="details-section">
+                    <h4>⚙️ Map Layers</h4>
+                    <div class="checkbox-list">
+                        <!-- REUSABLE: Streamlit checkbox widgets -->
+                        <div style="position: relative;">
+                            <span class="badge badge-reuse" title="Streamlit st.checkbox">[REUSE] Checkbox</span>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="buildings" checked>
+                                <label for="buildings">Buildings</label>
+                            </div>
+                        </div>
+                        <div style="position: relative;">
+                            <span class="badge badge-reuse" title="Streamlit st.checkbox">[REUSE] Checkbox</span>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="paths">
+                                <label for="paths">Paths</label>
+                            </div>
+                        </div>
+                        <div style="position: relative;">
+                            <span class="badge badge-reuse" title="Streamlit st.checkbox">[REUSE] Checkbox</span>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="waterways" checked>
+                                <label for="waterways">Waterways</label>
+                            </div>
+                        </div>
+                        <div style="position: relative;">
+                            <span class="badge badge-reuse" title="Streamlit st.checkbox">[REUSE] Checkbox</span>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="railways">
+                                <label for="railways">Railways</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Generation History -->
+            <div class="details-section" style="flex: 1; overflow: auto;">
+                <h4>📜 Recent Generations</h4>
+                <div class="history-list">
+                    <!-- NEW COMPONENT: History item cards -->
+                    <div style="position: relative;">
+                        <span class="badge badge-new" title="To be created at components/HistoryCard.py">[NEW] HistoryCard</span>
+                        <div class="history-item">
+                            <div class="history-thumb">[Thumb]</div>
+                            <div class="history-info">
+                                <div class="history-title">Berlin</div>
+                                <div class="history-meta">Noir | 8km | 2:34 PM</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="position: relative;">
+                        <span class="badge badge-new" title="To be created at components/HistoryCard.py">[NEW] HistoryCard</span>
+                        <div class="history-item">
+                            <div class="history-thumb">[Thumb]</div>
+                            <div class="history-info">
+                                <div class="history-title">Paris</div>
+                                <div class="history-meta">Sunset | 12km | 1:15 PM</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="position: relative;">
+                        <span class="badge badge-new" title="To be created at components/HistoryCard.py">[NEW] HistoryCard</span>
+                        <div class="history-item">
+                            <div class="history-thumb">[Thumb]</div>
+                            <div class="history-info">
+                                <div class="history-title">Tokyo</div>
+                                <div class="history-meta">Neon | 15km | Yesterday</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</body>
+</html>

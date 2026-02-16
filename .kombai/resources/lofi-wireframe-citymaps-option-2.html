@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CityMaps Wireframe - Option 2: Vertical Single Column</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Comic Sans MS', cursive;
+            background: #f5f5f5;
+            color: #333;
+        }
+        .mobile-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+        }
+        
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 30px 20px;
+            background: #fff;
+            border-bottom: 3px solid #000;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+        }
+        .header p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        /* Live Preview at Top */
+        .preview-section {
+            padding: 20px;
+            background: #f9f9f9;
+            border-bottom: 2px solid #ccc;
+        }
+        .preview-box {
+            width: 100%;
+            height: 500px;
+            background: #e0e0e0;
+            border: 3px solid #999;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            font-size: 1.2rem;
+            color: #666;
+        }
+        .preview-info {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .quick-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #000;
+            border-radius: 4px;
+            background: white;
+            font-family: 'Comic Sans MS', cursive;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .quick-btn-primary {
+            background: #333;
+            color: white;
+        }
+        
+        /* Collapsible Sections */
+        .section {
+            border-bottom: 2px solid #ccc;
+        }
+        .section-header {
+            padding: 20px;
+            background: white;
+            border-bottom: 2px solid #e0e0e0;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        .section-header:hover {
+            background: #f9f9f9;
+        }
+        .section-header.active {
+            background: #f0f0f0;
+        }
+        .section-icon {
+            font-size: 1.5rem;
+        }
+        .section-content {
+            padding: 20px;
+            background: white;
+        }
+        
+        /* Theme Carousel */
+        .theme-carousel {
+            display: flex;
+            gap: 15px;
+            overflow-x: auto;
+            padding: 10px 0;
+            scrollbar-width: thin;
+        }
+        .theme-card {
+            min-width: 180px;
+            border: 2px solid #999;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            background: white;
+        }
+        .theme-card.selected {
+            border-color: #333;
+            border-width: 3px;
+            background: #f9f9f9;
+        }
+        .theme-preview {
+            width: 100%;
+            height: 120px;
+            background: #e0e0e0;
+            border: 1px solid #999;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            color: #666;
+        }
+        .theme-name {
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+        
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #999;
+            border-radius: 4px;
+            font-family: 'Comic Sans MS', cursive;
+            font-size: 1rem;
+            background: white;
+        }
+        
+        /* Chip Selection */
+        .chip-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .chip {
+            padding: 10px 20px;
+            border: 2px solid #999;
+            border-radius: 20px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .chip.selected {
+            background: #333;
+            color: white;
+            border-color: #333;
+        }
+        
+        /* Detail Grid */
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #f9f9f9;
+        }
+        
+        /* Component Tags */
+        .badge {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            padding: 4px 8px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            z-index: 10;
+            color: white;
+        }
+        .badge-reuse {
+            background: #4CAF50;
+        }
+        .badge-new {
+            background: #FF9800;
+        }
+        
+        /* Floating Generate Button */
+        .fab {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: #333;
+            color: white;
+            border: 3px solid #000;
+            font-size: 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .hint {
+            color: #666;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-container">
+        <!-- Sticky Header -->
+        <div class="header">
+            <h1>CityMaps</h1>
+            <p>Tap sections below to configure</p>
+        </div>
+        
+        <!-- Live Preview Section -->
+        <div class="preview-section">
+            <!-- REUSABLE: Matplotlib figure display -->
+            <div style="position: relative;">
+                <span class="badge badge-reuse" title="Streamlit st.pyplot or st.image">[REUSE] ImageDisplay</span>
+                <div class="preview-box">
+                    [Live Poster Preview]<br>
+                    <span style="font-size: 0.9rem; margin-top: 10px;">Configure settings below to generate</span>
+                </div>
+            </div>
+            <div class="preview-info">
+                📍 Berlin | 🎨 Noir | 📏 8.0 km
+            </div>
+            <div class="quick-actions">
+                <!-- REUSABLE: Streamlit download_button -->
+                <div style="position: relative; flex: 1;">
+                    <span class="badge badge-reuse" title="Streamlit st.download_button">[REUSE] DownloadBtn</span>
+                    <button class="quick-btn">📥 PNG</button>
+                </div>
+                <div style="position: relative; flex: 1;">
+                    <span class="badge badge-reuse" title="Streamlit st.download_button">[REUSE] DownloadBtn</span>
+                    <button class="quick-btn">📥 SVG</button>
+                </div>
+                <div style="position: relative; flex: 1;">
+                    <span class="badge badge-reuse" title="Streamlit st.download_button">[REUSE] DownloadBtn</span>
+                    <button class="quick-btn">📥 PDF</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Collapsible Section 1: Theme -->
+        <!-- NEW COMPONENT: CollapsibleSection (to be created at components/CollapsibleSection.py) -->
+        <div class="section">
+            <div style="position: relative;">
+                <span class="badge badge-new" title="To be created at components/CollapsibleSection.py">[NEW] Collapsible</span>
+                <div class="section-header active">
+                    <span><span class="section-icon">🎨</span> Choose Theme</span>
+                    <span>▼</span>
+                </div>
+            </div>
+            <div class="section-content">
+                <!-- Horizontal Scrolling Theme Carousel -->
+                <div class="theme-carousel">
+                    <div class="theme-card selected">
+                        <div class="theme-preview">[Preview]</div>
+                        <div class="theme-name">Noir</div>
+                    </div>
+                    <div class="theme-card">
+                        <div class="theme-preview">[Preview]</div>
+                        <div class="theme-name">Blueprint</div>
+                    </div>
+                    <div class="theme-card">
+                        <div class="theme-preview">[Preview]</div>
+                        <div class="theme-name">Midnight</div>
+                    </div>
+                    <div class="theme-card">
+                        <div class="theme-preview">[Preview]</div>
+                        <div class="theme-name">Sunset</div>
+                    </div>
+                    <div class="theme-card">
+                        <div class="theme-preview">[Preview]</div>
+                        <div class="theme-name">Forest</div>
+                    </div>
+                </div>
+                <p class="hint">💡 Swipe to see all 17+ themes</p>
+            </div>
+        </div>
+        
+        <!-- Collapsible Section 2: Location -->
+        <div class="section">
+            <div style="position: relative;">
+                <span class="badge badge-new" title="To be created at components/CollapsibleSection.py">[NEW] Collapsible</span>
+                <div class="section-header">
+                    <span><span class="section-icon">📍</span> Location</span>
+                    <span>▶</span>
+                </div>
+            </div>
+            <div class="section-content" style="display: none;">
+                <div class="form-group">
+                    <!-- REUSABLE: Streamlit text_input -->
+                    <div style="position: relative;">
+                        <span class="badge badge-reuse" title="Streamlit st.text_input">[REUSE] TextInput</span>
+                        <label>Address or City</label>
+                        <input type="text" class="form-input" placeholder="e.g., Berlin, Germany">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Zoom Level</label>
+                    <!-- NEW COMPONENT: ChipSelector for zoom presets -->
+                    <div style="position: relative;">
+                        <span class="badge badge-new" title="To be created at components/ChipSelector.py">[NEW] ChipSelector</span>
+                        <div class="chip-group">
+                            <div class="chip">500m</div>
+                            <div class="chip">1km</div>
+                            <div class="chip">4km</div>
+                            <div class="chip selected">8km</div>
+                            <div class="chip">15km</div>
+                            <div class="chip">30km</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Collapsible Section 3: Details -->
+        <div class="section">
+            <div style="position: relative;">
+                <span class="badge badge-new" title="To be created at components/CollapsibleSection.py">[NEW] Collapsible</span>
+                <div class="section-header">
+                    <span><span class="section-icon">⚙️</span> Details & Layers</span>
+                    <span>▶</span>
+                </div>
+            </div>
+            <div class="section-content" style="display: none;">
+                <div class="form-group">
+                    <!-- REUSABLE: Streamlit selectbox -->
+                    <div style="position: relative;">
+                        <span class="badge badge-reuse" title="Streamlit st.selectbox">[REUSE] SelectBox</span>
+                        <label>Paper Format</label>
+                        <select class="form-input">
+                            <option>A3 (297 × 420 mm)</option>
+                            <option selected>A4 (210 × 297 mm)</option>
+                            <option>A5 (148 × 210 mm)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Map Layers</label>
+                    <div class="detail-grid">
+                        <!-- REUSABLE: Streamlit checkbox widgets -->
+                        <div style="position: relative;">
+                            <span class="badge badge-reuse" title="Streamlit st.checkbox">[REUSE] Checkbox</span>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="buildings">
+                                <label for="buildings">Buildings</label>
+                            </div>
+                        </div>
+                        <div style="position: relative;">
+                            <span class="badge badge-reuse" title="Streamlit st.checkbox">[REUSE] Checkbox</span>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="paths">
+                                <label for="paths">Paths</label>
+                            </div>
+                        </div>
+                        <div style="position: relative;">
+                            <span class="badge badge-reuse" title="Streamlit st.checkbox">[REUSE] Checkbox</span>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="waterways">
+                                <label for="waterways">Waterways</label>
+                            </div>
+                        </div>
+                        <div style="position: relative;">
+                            <span class="badge badge-reuse" title="Streamlit st.checkbox">[REUSE] Checkbox</span>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="railways">
+                                <label for="railways">Railways</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Collapsible Section 4: Custom Colors -->
+        <div class="section">
+            <div style="position: relative;">
+                <span class="badge badge-new" title="To be created at components/CollapsibleSection.py">[NEW] Collapsible</span>
+                <div class="section-header">
+                    <span><span class="section-icon">🎨</span> Custom Colors (Optional)</span>
+                    <span>▶</span>
+                </div>
+            </div>
+            <div class="section-content" style="display: none;">
+                <div class="detail-grid">
+                    <!-- REUSABLE: Streamlit color_picker -->
+                    <div style="position: relative;">
+                        <span class="badge badge-reuse" title="Streamlit st.color_picker">[REUSE] ColorPicker</span>
+                        <div class="form-group">
+                            <label>Background</label>
+                            <input type="color" class="form-input" value="#FFFFFF">
+                        </div>
+                    </div>
+                    <div style="position: relative;">
+                        <span class="badge badge-reuse" title="Streamlit st.color_picker">[REUSE] ColorPicker</span>
+                        <div class="form-group">
+                            <label>Water</label>
+                            <input type="color" class="form-input" value="#A8DADC">
+                        </div>
+                    </div>
+                    <div style="position: relative;">
+                        <span class="badge badge-reuse" title="Streamlit st.color_picker">[REUSE] ColorPicker</span>
+                        <div class="form-group">
+                            <label>Roads</label>
+                            <input type="color" class="form-input" value="#F77F00">
+                        </div>
+                    </div>
+                    <div style="position: relative;">
+                        <span class="badge badge-reuse" title="Streamlit st.color_picker">[REUSE] ColorPicker</span>
+                        <div class="form-group">
+                            <label>Parks</label>
+                            <input type="color" class="form-input" value="#90BE6D">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Floating Action Button -->
+        <!-- NEW COMPONENT: FloatingActionButton (FAB) -->
+        <div style="position: relative;">
+            <span class="badge badge-new" title="To be created at components/FloatingButton.py">[NEW] FAB</span>
+            <div class="fab" title="Generate Poster">
+                ✨
+            </div>
+        </div>
+    </div>
+</body>
+</html>
