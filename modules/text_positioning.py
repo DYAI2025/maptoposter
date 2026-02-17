@@ -167,16 +167,17 @@ def get_dynamic_font_size(
         return base_size
 
 
-def format_coordinates(lat: float, lon: float) -> str:
+def format_coordinates(lat: float, lon: float, format_type: str = "default") -> str:
     """
     Format latitude and longitude as readable string with hemisphere indicators.
 
     Args:
         lat: Latitude in decimal degrees
         lon: Longitude in decimal degrees
+        format_type: Format type - "default", "decimal", "compact", " DMS"
 
     Returns:
-        Formatted string like "48.8566° N / 2.3522° E"
+        Formatted coordinate string
     """
     lat_hemisphere = "N" if lat >= 0 else "S"
     lon_hemisphere = "E" if lon >= 0 else "W"
@@ -184,7 +185,23 @@ def format_coordinates(lat: float, lon: float) -> str:
     lat_abs = abs(lat)
     lon_abs = abs(lon)
 
-    return f"{lat_abs:.4f}° {lat_hemisphere} / {lon_abs:.4f}° {lon_hemisphere}"
+    if format_type == "decimal":
+        # Pure decimal format: 48.8566, 2.3522
+        return f"{lat_abs:.4f}, {lon_abs:.4f}"
+    elif format_type == "compact":
+        # Compact: 48.9°N / 2.4°E
+        return f"{lat_abs:.1f}°{lat_hemisphere} / {lon_abs:.1f}°{lon_hemisphere}"
+    elif format_type == "dms":
+        # Degrees, minutes, seconds format
+        lat_deg = int(lat_abs)
+        lat_min = (lat_abs - lat_deg) * 60
+        lon_deg = int(lon_abs)
+        lon_min = (lon_abs - lon_deg) * 60
+
+        return f"{lat_deg}°{int(lat_min)}'{lat_hemisphere} / {lon_deg}°{int(lon_min)}'{lon_hemisphere}"
+    else:
+        # Default with hemisphere symbols
+        return f"{lat_abs:.4f}° {lat_hemisphere} / {lon_abs:.4f}° {lon_hemisphere}"
 
 
 def apply_text_overlay(
@@ -198,6 +215,13 @@ def apply_text_overlay(
     text_config: dict | None = None,
     paper_size: str = "A4",
     distance_m: int = 8000,
+    # User personalization parameters
+    custom_city_text: str | None = None,
+    custom_country_text: str | None = None,
+    custom_subtitle: str | None = None,
+    coords_format: str = "default",
+    custom_coords_text: str | None = None,
+    text_color: str | None = None,
 ) -> None:
     """
     Apply text overlay to map axes.
@@ -207,7 +231,7 @@ def apply_text_overlay(
 
     Args:
         ax: Matplotlib axes object
-        city: City name
+        city: City name (default text)
         country: Country name
         lat: Latitude coordinate
         lon: Longitude coordinate
@@ -221,6 +245,13 @@ def apply_text_overlay(
             - show_country: bool, default True
         paper_size: Paper format for font scaling (A2, A3, A4, A5)
         distance_m: Map radius in meters for font scaling
+        # User personalization parameters:
+        custom_city_text: Override city name with custom text
+        custom_country_text: Override country name with custom text
+        custom_subtitle: Add custom subtitle below city name
+        coords_format: Format for coordinates ("default", "decimal", "compact", "dms")
+        custom_coords_text: Completely override coordinates with custom text
+        text_color: Override text color from theme
     """
     if text_config is None:
         text_config = {
@@ -230,6 +261,13 @@ def apply_text_overlay(
             "show_coords": True,
             "show_country": True,
         }
+
+    # Use personalization or fall back to defaults
+    display_city = custom_city_text if custom_city_text else city
+    display_country = custom_country_text if custom_country_text else country
+
+    # Determine text color (custom or from theme)
+    text_color_final = text_color if text_color else theme["text"]
 
     # Calculate scaled font sizes
     size_city = get_scaled_font_size(60, paper_size, distance_m, min_size=16)
@@ -250,13 +288,13 @@ def apply_text_overlay(
         font_coords = FontProperties(family="monospace", size=size_coords)
         font_attr = FontProperties(family="monospace", size=size_attr)
 
-    # Format city name with spacing
-    spaced_city = "  ".join(list(city.upper()))
+    # Format city name with spacing (use display_city for personalization)
+    spaced_city = "  ".join(list(display_city.upper()))
 
     # Additional dynamic sizing for long names (on top of paper/zoom scaling)
     name_scale = 1.0
-    if len(city) > 10:
-        name_scale = 10 / len(city)
+    if len(display_city) > 10:
+        name_scale = 10 / len(display_city)
         name_scale = max(name_scale, 0.5)  # Don't go below 50%
 
     adjusted_font_size = int(size_city * name_scale)
@@ -264,9 +302,15 @@ def apply_text_overlay(
         font_main_adjusted = FontProperties(
             fname=fonts["bold"], size=adjusted_font_size
         )
+        font_subtitle = FontProperties(
+            fname=fonts["light"], size=int(size_country * 0.8)
+        )
     else:
         font_main_adjusted = FontProperties(
             family="monospace", weight="bold", size=adjusted_font_size
+        )
+        font_subtitle = FontProperties(
+            family="monospace", weight="normal", size=int(size_country * 0.8)
         )
 
     # Get alignment
@@ -280,11 +324,25 @@ def apply_text_overlay(
         y_pos,
         spaced_city,
         transform=ax.transAxes,
-        color=theme["text"],
+        color=text_color_final,
         ha=ha,
         fontproperties=font_main_adjusted,
         zorder=11,
     )
+
+    # --- CUSTOM SUBTITLE (if provided) ---
+    if custom_subtitle:
+        ax.text(
+            x_pos,
+            y_pos - 0.025,
+            custom_subtitle.upper(),
+            transform=ax.transAxes,
+            color=text_color_final,
+            alpha=0.8,
+            ha=ha,
+            fontproperties=font_subtitle,
+            zorder=11,
+        )
 
     # --- DECORATIVE LINE (scaled) ---
     scale_factor = calculate_font_scale(paper_size, distance_m)
@@ -299,9 +357,9 @@ def apply_text_overlay(
     line_width = max(0.5, 1.0 * scale_factor)  # Scale line width
     ax.plot(
         [line_left, line_right],
-        [y_pos - 0.015, y_pos - 0.015],
+        [y_pos - 0.04, y_pos - 0.04],
         transform=ax.transAxes,
-        color=theme["text"],
+        color=text_color_final,
         linewidth=line_width,
         zorder=11,
     )
@@ -310,10 +368,10 @@ def apply_text_overlay(
     if text_config.get("show_country", True):
         ax.text(
             x_pos,
-            y_pos - 0.04,
-            country.upper(),
+            y_pos - 0.04 - (0.025 if custom_subtitle else 0.04),
+            display_country.upper(),
             transform=ax.transAxes,
-            color=theme["text"],
+            color=text_color_final,
             ha=ha,
             fontproperties=font_sub,
             zorder=11,
@@ -322,14 +380,20 @@ def apply_text_overlay(
     # --- COORDINATES ---
     if text_config.get("show_coords", True):
         coords_y = y_pos - (0.07 if text_config.get("show_country", True) else 0.04)
-        coords_text = format_coordinates(lat, lon)
+        coords_y -= 0.025 if custom_subtitle else 0.0
+
+        # Use custom coords text or format based on preference
+        if custom_coords_text:
+            coords_text = custom_coords_text
+        else:
+            coords_text = format_coordinates(lat, lon, coords_format)
 
         ax.text(
             x_pos,
             coords_y,
             coords_text,
             transform=ax.transAxes,
-            color=theme["text"],
+            color=text_color_final,
             alpha=0.7,
             ha=ha,
             fontproperties=font_coords,
@@ -342,7 +406,7 @@ def apply_text_overlay(
         0.02,
         "© OpenStreetMap contributors",
         transform=ax.transAxes,
-        color=theme["text"],
+        color=text_color_final,
         alpha=0.5,
         ha="right",
         va="bottom",

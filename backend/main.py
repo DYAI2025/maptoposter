@@ -91,6 +91,18 @@ class PosterRequest(BaseModel):
     distance: int = Field(8000, gt=0)
     paper_size: str = "A4"
     dpi: int = Field(300, ge=72, le=600)
+    # User personalization parameters
+    custom_city_text: Optional[str] = None
+    custom_country_text: Optional[str] = None
+    custom_subtitle: Optional[str] = None
+    coords_format: str = Field("default", regex="^(default|decimal|compact|dms)$")
+    custom_coords_text: Optional[str] = None
+    text_color: Optional[str] = None
+    # Color customization
+    bg_color: Optional[str] = None
+    water_color: Optional[str] = None
+    parks_color: Optional[str] = None
+    road_colors: Optional[Dict[str, str]] = None
 
 
 class ServiceInfo(BaseModel):
@@ -216,7 +228,19 @@ async def generate_poster(
             custom_theme=request.custom_theme,
             distance=request.distance,
             paper_size=request.paper_size,
-            dpi=request.dpi
+            dpi=request.dpi,
+            # User personalization parameters
+            custom_city_text=request.custom_city_text,
+            custom_country_text=request.custom_country_text,
+            custom_subtitle=request.custom_subtitle,
+            coords_format=request.coords_format,
+            custom_coords_text=request.custom_coords_text,
+            text_color=request.text_color,
+            # Color customization
+            bg_color=request.bg_color,
+            water_color=request.water_color,
+            parks_color=request.parks_color,
+            road_colors=request.road_colors,
         )
         
         # For now, return success

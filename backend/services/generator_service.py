@@ -94,11 +94,23 @@ class PosterGeneratorService(BaseService):
         distance: int = 8000,
         paper_size: str = "A4",
         dpi: int = 300,
+        # User personalization parameters
+        custom_city_text: Optional[str] = None,
+        custom_country_text: Optional[str] = None,
+        custom_subtitle: Optional[str] = None,
+        coords_format: str = "default",
+        custom_coords_text: Optional[str] = None,
+        text_color: Optional[str] = None,
+        # Color customization (overrides specific theme colors)
+        bg_color: Optional[str] = None,
+        water_color: Optional[str] = None,
+        parks_color: Optional[str] = None,
+        road_colors: Optional[Dict[str, str]] = None,
         **kwargs
     ):
         """
         Generate a map poster.
-        
+
         Args:
             lat: Latitude
             lon: Longitude
@@ -109,37 +121,59 @@ class PosterGeneratorService(BaseService):
             distance: Map radius in meters
             paper_size: Paper size (A4, A3, A2, etc.)
             dpi: Output DPI
+            custom_city_text: Override city name with custom text
+            custom_country_text: Override country name with custom text
+            custom_subtitle: Add custom subtitle below city name
+            coords_format: Format for coordinates ("default", "decimal", "compact", "dms")
+            custom_coords_text: Completely override coordinates with custom text
+            text_color: Override text color from theme
+            bg_color: Override background color
+            water_color: Override water features color
+            parks_color: Override parks/green spaces color
+            road_colors: Dict to override road colors (keys: motorway, primary, secondary, tertiary, residential, default)
             **kwargs: Additional arguments for PosterGenerator
-        
+
         Returns:
             Matplotlib figure object
         """
         if not self.is_initialized:
             raise RuntimeError("Poster generator service not initialized")
-        
+
         # Validate distance
         if distance > self.max_distance:
             raise ValueError(
                 f"Distance {distance}m exceeds maximum {self.max_distance}m"
             )
-        
+
         # Use theme or custom theme
         theme_name = theme or self.default_theme
-        
+
+        # Merge custom color overrides with custom_theme
+        final_custom_theme = dict(custom_theme) if custom_theme else {}
+        if bg_color:
+            final_custom_theme['bg'] = bg_color
+        if water_color:
+            final_custom_theme['water'] = water_color
+        if parks_color:
+            final_custom_theme['parks'] = parks_color
+        if road_colors:
+            for key, value in road_colors.items():
+                final_custom_theme[f'road_{key}'] = value
+
         try:
             logger.info(
                 f"Generating poster: {city_name}, {country_name} "
                 f"({lat:.4f}, {lon:.4f}) - "
                 f"theme={theme_name}, distance={distance}m"
             )
-            
+
             # Create generator
             generator = LegacyPosterGenerator(
-                theme_name=theme_name if not custom_theme else None,
-                custom_theme=custom_theme
+                theme_name=theme_name if not final_custom_theme else None,
+                custom_theme=final_custom_theme if final_custom_theme else None
             )
-            
-            # Generate poster
+
+            # Generate poster with personalization
             fig = generator.generate_poster(
                 lat=lat,
                 lon=lon,
@@ -148,12 +182,18 @@ class PosterGeneratorService(BaseService):
                 paper_size=paper_size,
                 distance=distance,
                 dpi=dpi,
+                custom_city_text=custom_city_text,
+                custom_country_text=custom_country_text,
+                custom_subtitle=custom_subtitle,
+                coords_format=coords_format,
+                custom_coords_text=custom_coords_text,
+                text_color=text_color,
                 **kwargs
             )
-            
+
             logger.info("Poster generated successfully")
             return fig
-            
+
         except Exception as e:
             logger.error(f"Error generating poster: {e}")
             raise

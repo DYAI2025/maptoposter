@@ -911,6 +911,13 @@ class PosterGenerator:
         dpi: int = None,
         text_position: dict = None,
         layers: dict = None,
+        # User personalization parameters
+        custom_city_text: str = None,
+        custom_country_text: str = None,
+        custom_subtitle: str = None,
+        coords_format: str = "default",
+        custom_coords_text: str = None,
+        text_color: str = None,
     ) -> Figure:
         """
         Generate map poster as matplotlib Figure.
@@ -927,6 +934,12 @@ class PosterGenerator:
             layers: Optional dict with layer visibility:
                     {"buildings": bool, "paths": bool, "landscape": bool}
                     If None, uses zoom-dependent defaults.
+            custom_city_text: Override city name with custom text
+            custom_country_text: Override country name with custom text
+            custom_subtitle: Add custom subtitle below city name
+            coords_format: Format for coordinates ("default", "decimal", "compact", "dms")
+            custom_coords_text: Completely override coordinates with custom text
+            text_color: Override text color from theme
 
         Returns:
             Matplotlib Figure object (not saved)
@@ -1334,7 +1347,7 @@ class PosterGenerator:
             ax, self.theme["gradient_color"], location="top", zorder=10
         )
 
-        # Apply text overlay with font scaling
+        # Apply text overlay with font scaling and personalization
         apply_text_overlay(
             ax,
             city_name,
@@ -1346,6 +1359,12 @@ class PosterGenerator:
             text_config=text_position,
             paper_size=paper_size,
             distance_m=distance,
+            custom_city_text=custom_city_text,
+            custom_country_text=custom_country_text,
+            custom_subtitle=custom_subtitle,
+            coords_format=coords_format,
+            custom_coords_text=custom_coords_text,
+            text_color=text_color,
         )
 
         print("✓ Map generated successfully!")
@@ -1477,7 +1496,7 @@ class PosterGenerator:
         horizon_color = self.theme.get("horizon_glow", "#0a1530")
         create_horizon_glow(ax, horizon_color, intensity=0.25)
 
-        # Apply text overlay
+        # Apply text overlay with personalization
         apply_text_overlay(
             ax,
             city_name,
@@ -1489,6 +1508,12 @@ class PosterGenerator:
             text_config=text_position,
             paper_size=paper_size,
             distance_m=distance,
+            custom_city_text=custom_city_text,
+            custom_country_text=custom_country_text,
+            custom_subtitle=custom_subtitle,
+            coords_format=coords_format,
+            custom_coords_text=custom_coords_text,
+            text_color=text_color,
         )
 
         print("✓ Night Lights map generated successfully!")
@@ -1617,7 +1642,7 @@ class PosterGenerator:
             print("  Adding vignette effect...")
             create_radial_vignette(ax, center_x, center_y, max_dist, intensity=vignette_intensity)
 
-        # Apply text overlay
+        # Apply text overlay with personalization
         apply_text_overlay(
             ax,
             city_name,
@@ -1629,6 +1654,12 @@ class PosterGenerator:
             text_config=text_position,
             paper_size=paper_size,
             distance_m=distance,
+            custom_city_text=custom_city_text,
+            custom_country_text=custom_country_text,
+            custom_subtitle=custom_subtitle,
+            coords_format=coords_format,
+            custom_coords_text=custom_coords_text,
+            text_color=text_color,
         )
 
         print("✓ Holonight map generated successfully!")
@@ -1754,7 +1785,7 @@ class PosterGenerator:
             close=False,
         )
 
-        # Apply text overlay
+        # Apply text overlay with personalization
         apply_text_overlay(
             ax,
             city_name,
@@ -1766,6 +1797,12 @@ class PosterGenerator:
             text_config=text_position,
             paper_size=paper_size,
             distance_m=distance,
+            custom_city_text=custom_city_text,
+            custom_country_text=custom_country_text,
+            custom_subtitle=custom_subtitle,
+            coords_format=coords_format,
+            custom_coords_text=custom_coords_text,
+            text_color=text_color,
         )
 
         print("✓ Kandincity map generated successfully!")
