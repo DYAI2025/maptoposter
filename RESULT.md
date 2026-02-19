@@ -1,114 +1,65 @@
-# MapToPoster - User Personalization Features
+# MapToPoster — MVP Scope Definition & Map API Research
 
 ## Summary
 
-Implemented user personalization features allowing users to customize text and basic color schemes on their map posters.
+Conducted comprehensive research on map API providers and defined the initial MVP feature set for MapToPoster — a web app that generates beautiful, minimalist map posters from any location worldwide.
 
-## Changes Made
+## What Was Done
 
-### 1. Text Personalization (`modules/text_positioning.py`)
+### 1. Map API Research (`docs/MAP-API-RESEARCH.md`)
 
-**New Features:**
-- `custom_city_text`: Override the city name with custom text
-- `custom_country_text`: Override the country name with custom text
-- `custom_subtitle`: Add a custom subtitle below the city name
-- `coords_format`: Choose coordinate format ("default", "decimal", "compact", "dms")
-- `custom_coords_text`: Completely override coordinates with custom text
-- `text_color`: Override the text color from theme
+Evaluated 7+ map data and rendering providers for commercial poster generation:
 
-**Modified Functions:**
-- `format_coordinates()`: Added `format_type` parameter with support for 4 formats:
-  - `"default"`: 48.8566° N / 2.3522° E
-  - `"decimal"`: 48.8566, 2.3522
-  - `"compact"`: 48.9°N / 2.4°E
-  - `"dms"`: 48°51'N / 2°21'E
-- `apply_text_overlay()`: Extended to accept all personalization parameters
+| Provider | Commercial Print OK? | Cost | Verdict |
+|----------|---------------------|------|---------|
+| **OSMnx + Overpass (OSM)** | Yes (ODbL attribution) | Free | **Recommended** |
+| **Google Maps** | **No** (ToS explicitly prohibits posters) | $2/1K | Rejected |
+| **Mapbox** | Limited (2K copies/yr) | $1/1K | Preview only |
+| **Stadia Maps** | Up to 5K copies/image | $20+/mo | Alternative |
+| **TileServer GL (self-hosted)** | Yes (ODbL) | Hosting only | Future option |
+| **Mapnik** | Yes (ODbL) | Free | Future option |
 
-### 2. Poster Generator (`modules/poster_generator.py`)
+**Key finding:** Google Maps cannot be used for commercial poster sales — posters are explicitly listed as prohibited merchandise in their Terms of Service. OpenStreetMap with ODbL license is the only viable free option for unlimited commercial use.
 
-**Modified Method:**
-- `generate_poster()`: Added personalization parameters and passed them to `apply_text_overlay()`
-- Updated all 4 render methods to pass personalization parameters:
-  - Standard rendering
-  - Night Lights mode (`_render_night_lights`)
-  - Holonight mode (`_render_holonight`)
-  - Kandincity mode (`_render_kandincity`)
+**Recommended MVP stack:**
+- Map Data: OSMnx + Overpass API (already integrated, free, unlimited)
+- Geocoding: Nominatim (public for dev, self-hosted at scale)
+- Rendering: Matplotlib (already working, poster-quality, no resolution limits)
+- Interactive Preview: MapLibre GL JS (free, for future web frontend)
 
-### 3. Backend API (`backend/services/generator_service.py`)
+### 2. MVP Scope Definition (`docs/MVP-SCOPE.md`)
 
-**Enhanced Method:**
-- `generate_poster()`: Added text and color customization parameters
+Defined the "first sellable product" scope with priority matrix:
 
-**New Color Customization:**
-- `bg_color`: Override background color
-- `water_color`: Override water features color
-- `parks_color`: Override parks/green spaces color
-- `road_colors`: Dict to override road colors (keys: motorway, primary, secondary, tertiary, residential, default)
+**Already working (P0 complete):**
+- Core map generation via OSMnx
+- 30+ theme system
+- 5 font families
+- Text & color personalization
+- Paper sizes (A2-A5), export formats (PNG/SVG/PDF)
 
-### 4. REST API (`backend/main.py`)
+**MVP must-build (P0-P1):**
+- Backend API with async generation (FastAPI, Celery/RQ)
+- Web frontend with location search and live preview
+- Quick preview mode (<3 seconds)
+- Stripe Checkout payment integration
+- File storage & delivery (S3-compatible)
 
-**Updated Models:**
-- `PosterRequest`: Added all personalization fields with validation
+**Curated 8 themes for MVP:** noir, midnight_blue, warm_beige, japanese_ink, neon_cyberpunk, blueprint, feature_based, forest
 
-**Updated Endpoints:**
-- `POST /api/v1/posters/generate`: Now accepts personalization parameters
+**Pricing model:** Digital download — A4: €9.99, A3: €14.99, A2: €19.99
 
-## API Usage Examples
+**Out of scope for MVP:** Print-on-demand, user accounts, GPS track overlay, 3D buildings, mobile app, API for third parties.
 
-### Text Personalization
-```bash
-curl -X POST http://localhost:8000/api/v1/posters/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "latitude": 48.8566,
-    "longitude": 2.3522,
-    "city_name": "Paris",
-    "country_name": "France",
-    "custom_city_text": "City of Light",
-    "custom_subtitle": "Where Dreams Take Flight",
-    "coords_format": "compact"
-  }'
-```
+## Files Created/Modified
 
-### Color Customization
-```bash
-curl -X POST http://localhost:8000/api/v1/posters/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "latitude": 48.8566,
-    "longitude": 2.3522,
-    "city_name": "Paris",
-    "country_name": "France",
-    "bg_color": "#1a1a2e",
-    "water_color": "#4a90d9",
-    "parks_color": "#2d5a27",
-    "road_colors": {
-      "motorway": "#ff6b6b",
-      "primary": "#feca57",
-      "secondary": "#48dbfb"
-    }
-  }'
-```
+| File | Action | Description |
+|------|--------|-------------|
+| `docs/MAP-API-RESEARCH.md` | Created | Detailed API research: 7 providers, pricing, terms, legal analysis, architecture recommendations |
+| `docs/MVP-SCOPE.md` | Created | MVP feature set, priority matrix, tech architecture, success metrics, risk assessment |
+| `RESULT.md` | Replaced | This summary document |
 
-## Files Modified
+## Commit
 
-| File | Changes |
-|------|---------|
-| `modules/text_positioning.py` | Extended `format_coordinates()` and `apply_text_overlay()` |
-| `modules/poster_generator.py` | Added personalization params to `generate_poster()` and all render methods |
-| `backend/services/generator_service.py` | Added text and color customization to `generate_poster()` |
-| `backend/main.py` | Updated `PosterRequest` model and API endpoint |
-
-## Git Commit
-
-- **Commit Hash**: `1870b29`
-- **Branch**: `main`
-- **Message**: Add user personalization features: text customization (custom city/country text, subtitle, coordinates format) and basic color customization (bg, water, parks, road colors)
-
-## Note
-
-Push to GitHub requires authentication. The commit is stored locally and ready to push when credentials are available:
-
-```bash
-git push origin main
-```
+- **Branch:** main
+- **Repository:** https://github.com/DYAI2025/maptoposter
