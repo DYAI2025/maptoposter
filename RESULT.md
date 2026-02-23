@@ -1,65 +1,64 @@
-# MapToPoster — MVP Scope Definition & Map API Research
+# MapToPoster — User Personalization Features (Text/Color)
 
 ## Summary
 
-Conducted comprehensive research on map API providers and defined the initial MVP feature set for MapToPoster — a web app that generates beautiful, minimalist map posters from any location worldwide.
+Implemented user personalization features in the Streamlit GUI to allow customization of text (city name, coordinates) and basic color schemes on generated map posters.
 
 ## What Was Done
 
-### 1. Map API Research (`docs/MAP-API-RESEARCH.md`)
+### 1. UI Extension for Text Customization (`gui_app.py`)
 
-Evaluated 7+ map data and rendering providers for commercial poster generation:
+Added a new "Text-Anpassung" (Text Customization) section in the **Details** tab with the following features:
 
-| Provider | Commercial Print OK? | Cost | Verdict |
-|----------|---------------------|------|---------|
-| **OSMnx + Overpass (OSM)** | Yes (ODbL attribution) | Free | **Recommended** |
-| **Google Maps** | **No** (ToS explicitly prohibits posters) | $2/1K | Rejected |
-| **Mapbox** | Limited (2K copies/yr) | $1/1K | Preview only |
-| **Stadia Maps** | Up to 5K copies/image | $20+/mo | Alternative |
-| **TileServer GL (self-hosted)** | Yes (ODbL) | Hosting only | Future option |
-| **Mapnik** | Yes (ODbL) | Free | Future option |
+- **Custom City Text** - Override the city name displayed on the poster (e.g., "Mein Zuhause")
+- **Custom Country Text** - Override the country name (e.g., "Brandenburg")
+- **Custom Subtitle** - Add subtitle text below the city name (e.g., "Hier wohne ich")
+- **Custom Coordinates Text** - Completely override coordinates with custom text
+- **Coordinates Format Selector** - Choose format:
+  - Standard (52°31'N 13°24'E)
+  - Dezimal (52.52, 13.40)
+  - Kompakt (52.52N 13.40E)
+  - DMS (52°31'24"N 13°24'00"E)
+- **Text Color Picker** - Choose custom text color for all text elements
 
-**Key finding:** Google Maps cannot be used for commercial poster sales — posters are explicitly listed as prohibited merchandise in their Terms of Service. OpenStreetMap with ODbL license is the only viable free option for unlimited commercial use.
+### 2. Backend Integration
 
-**Recommended MVP stack:**
-- Map Data: OSMnx + Overpass API (already integrated, free, unlimited)
-- Geocoding: Nominatim (public for dev, self-hosted at scale)
-- Rendering: Matplotlib (already working, poster-quality, no resolution limits)
-- Interactive Preview: MapLibre GL JS (free, for future web frontend)
+- Updated `generate_poster()` call to pass all personalization parameters
+- Synced text_color with custom_theme_colors for theme consistency
+- Backend already had full support for these parameters (verified in `backend/main.py` and `modules/poster_generator.py`)
 
-### 2. MVP Scope Definition (`docs/MVP-SCOPE.md`)
+### 3. Existing Color Customization
 
-Defined the "first sellable product" scope with priority matrix:
+The color customization was already implemented in the **Theme Designer** tab:
+- Background color
+- Water features color
+- Parks/forest color
+- Road colors (motorway, primary, secondary, tertiary, residential)
+- Building colors
+- Path colors
+- Gradient color
 
-**Already working (P0 complete):**
-- Core map generation via OSMnx
-- 30+ theme system
-- 5 font families
-- Text & color personalization
-- Paper sizes (A2-A5), export formats (PNG/SVG/PDF)
+Users can create, save, and load custom themes with these colors.
 
-**MVP must-build (P0-P1):**
-- Backend API with async generation (FastAPI, Celery/RQ)
-- Web frontend with location search and live preview
-- Quick preview mode (<3 seconds)
-- Stripe Checkout payment integration
-- File storage & delivery (S3-compatible)
-
-**Curated 8 themes for MVP:** noir, midnight_blue, warm_beige, japanese_ink, neon_cyberpunk, blueprint, feature_based, forest
-
-**Pricing model:** Digital download — A4: €9.99, A3: €14.99, A2: €19.99
-
-**Out of scope for MVP:** Print-on-demand, user accounts, GPS track overlay, 3D buildings, mobile app, API for third parties.
-
-## Files Created/Modified
+## Files Modified
 
 | File | Action | Description |
 |------|--------|-------------|
-| `docs/MAP-API-RESEARCH.md` | Created | Detailed API research: 7 providers, pricing, terms, legal analysis, architecture recommendations |
-| `docs/MVP-SCOPE.md` | Created | MVP feature set, priority matrix, tech architecture, success metrics, risk assessment |
-| `RESULT.md` | Replaced | This summary document |
+| `gui_app.py` | Modified | Added Text Customization section in Details tab, updated generate_poster() call |
 
 ## Commit
 
+- **Commit Hash:** 949ebd9
 - **Branch:** main
 - **Repository:** https://github.com/DYAI2025/maptoposter
+
+## Note
+
+- Git push failed due to authentication (expected in this environment)
+- Changes are committed locally and ready for push when credentials are available
+- Backend API already supports all personalization parameters defined in PosterRequest model
+
+## Testing
+
+- Syntax validation: ✓ Passed (`python3 -m py_compile gui_app.py`)
+- Backend parameters: ✓ Already implemented in `backend/main.py` and `modules/poster_generator.py`
