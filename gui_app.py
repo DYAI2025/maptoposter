@@ -966,6 +966,65 @@ with col_input:
         with col_opts_2:
             show_coords = st.checkbox("Koordinaten anzeigen", value=True)
 
+        st.divider()
+
+        # === USER PERSONALIZATION: Text Customization ===
+        st.markdown("##### ✏️ Text-Anpassung")
+
+        col_txt1, col_txt2 = st.columns(2)
+        with col_txt1:
+            custom_city_text = st.text_input(
+                "Eigener Stadttext",
+                placeholder="z.B. Mein Zuhause",
+                help="Stadtnamen auf dem Poster überschreiben",
+                key="custom_city_text"
+            )
+            custom_country_text = st.text_input(
+                "Eigener Landtext",
+                placeholder="z.B. Brandenburg",
+                help="Land auf dem Poster überschreiben",
+                key="custom_country_text"
+            )
+        with col_txt2:
+            custom_subtitle = st.text_input(
+                "Untertitel",
+                placeholder="z.B. Hier wohne ich",
+                help="Text unter dem Stadtnamen",
+                key="custom_subtitle"
+            )
+            custom_coords_text = st.text_input(
+                "Eigene Koordinaten",
+                placeholder="z.B. 52.52° N, 13.40° E",
+                help="Koordinaten vollständig überschreiben",
+                key="custom_coords_text"
+            )
+
+        # Coords format selection
+        col_fmt1, col_fmt2 = st.columns(2)
+        with col_fmt1:
+            coords_format = st.selectbox(
+                "Koordinatenformat",
+                options=["default", "decimal", "compact", "dms"],
+                format_func=lambda x: {
+                    "default": "Standard (52°31'N 13°24'E)",
+                    "decimal": "Dezimal (52.52, 13.40)",
+                    "compact": "Kompakt (52.52N 13.40E)",
+                    "dms": "DMS (52°31'24\"N 13°24'00\"E)"
+                }.get(x, x),
+                index=0,
+                help="Format für Koordinatenanzeige",
+                key="coords_format"
+            )
+        with col_fmt2:
+            text_color = st.color_picker(
+                "Textfarbe",
+                value=st.session_state.custom_theme_colors.get("text", "#1A1A1A"),
+                help="Farbe für alle Texte auf dem Poster",
+                key="text_color_picker"
+            )
+            # Sync text color with custom theme colors for consistency
+            st.session_state.custom_theme_colors["text"] = text_color
+
     # ========================================================================
     # GENERATE BUTTON (Outside tabs, always visible)
     # ========================================================================
@@ -1045,6 +1104,13 @@ with col_input:
                     distance=distance_m,
                     text_position=text_config,
                     layers=layer_config,
+                    # User personalization parameters
+                    custom_city_text=custom_city_text if custom_city_text else None,
+                    custom_country_text=custom_country_text if custom_country_text else None,
+                    custom_subtitle=custom_subtitle if custom_subtitle else None,
+                    coords_format=coords_format,
+                    custom_coords_text=custom_coords_text if custom_coords_text else None,
+                    text_color=text_color,
                 )
 
                 st.session_state.generated_figure = fig
