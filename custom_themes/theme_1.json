@@ -1,0 +1,19 @@
+{
+  "name": "theme_1",
+  "description": "Custom theme created on 2026-02-17",
+  "custom": true,
+  "bg": "#FFFFFF",
+  "text": "#1A1A1A",
+  "water": "#40337d",
+  "parks": "#90BE6D",
+  "road_motorway": "#d4f700",
+  "road_primary": "#F94144",
+  "road_secondary": "#395a73",
+  "road_tertiary": "#a27a06",
+  "road_residential": "#90BE6D",
+  "road_default": "#CCCCCC",
+  "buildings": "#D0D0D0",
+  "buildings_fill": "#E8E8E8",
+  "paths": "#B0B0B0",
+  "gradient_color": "#FFFFFF"
+}

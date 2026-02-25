@@ -2,16 +2,21 @@
 MapToPoster - FastAPI Application
 
 Main API application with modular service architecture.
+Supports both Python GUI (Streamlit) and JS Frontend (Vite/React-like).
 """
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Dict, Any, List, Optional
 import logging
 import sys
+import uuid
+import io
 from pathlib import Path
+from datetime import datetime
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -55,6 +60,9 @@ if cors_config.get("enabled", True):
 # Global service registry
 service_registry: Optional[ServiceRegistry] = None
 
+# In-memory poster storage (use Redis in production)
+POSTER_STORE: Dict[str, bytes] = {}
+
 
 # === Dependency Injection ===
 
@@ -91,18 +99,40 @@ class PosterRequest(BaseModel):
     distance: int = Field(8000, gt=0)
     paper_size: str = "A4"
     dpi: int = Field(300, ge=72, le=600)
-    # User personalization parameters
-    custom_city_text: Optional[str] = None
-    custom_country_text: Optional[str] = None
-    custom_subtitle: Optional[str] = None
-    coords_format: str = Field("default", regex="^(default|decimal|compact|dms)$")
-    custom_coords_text: Optional[str] = None
-    text_color: Optional[str] = None
-    # Color customization
-    bg_color: Optional[str] = None
-    water_color: Optional[str] = None
-    parks_color: Optional[str] = None
-    road_colors: Optional[Dict[str, str]] = None
+    layers: Optional[Dict[str, bool]] = None
+    text_position: Optional[Dict[str, Any]] = None
+
+
+class PosterResponse(BaseModel):
+    """Poster generation response."""
+    status: str
+    message: str
+    poster_id: str
+    download_url: Optional[str] = None
+
+
+class ThemeResponse(BaseModel):
+    """Theme information."""
+    name: str
+    description: str
+    colors: Dict[str, str]
+
+
+class GeocodeSearchResult(BaseModel):
+    """Geocoding search result."""
+    name: str
+    latitude: float
+    longitude: float
+    display_name: str
+    type: str
+
+
+class ReverseGeocodeResult(BaseModel):
+    """Reverse geocoding result."""
+    latitude: float
+    longitude: float
+    display_name: str
+    address: Dict[str, str]
 
 
 class ServiceInfo(BaseModel):
@@ -207,17 +237,17 @@ async def geocode_address(
     )
 
 
-@app.post(f"{app_config.api_prefix}/posters/generate")
+@app.post(f"{app_config.api_prefix}/posters/generate", response_model=PosterResponse)
 async def generate_poster(
     request: PosterRequest,
     registry: ServiceRegistry = Depends(get_service_registry)
 ):
     """Generate a map poster."""
     generator_service = registry.get("generator")
-    
+
     if not generator_service:
         raise HTTPException(status_code=503, detail="Generator service not available")
-    
+
     try:
         fig = await generator_service.generate_poster(
             lat=request.latitude,
@@ -229,33 +259,160 @@ async def generate_poster(
             distance=request.distance,
             paper_size=request.paper_size,
             dpi=request.dpi,
-            # User personalization parameters
-            custom_city_text=request.custom_city_text,
-            custom_country_text=request.custom_country_text,
-            custom_subtitle=request.custom_subtitle,
-            coords_format=request.coords_format,
-            custom_coords_text=request.custom_coords_text,
-            text_color=request.text_color,
-            # Color customization
-            bg_color=request.bg_color,
-            water_color=request.water_color,
-            parks_color=request.parks_color,
-            road_colors=request.road_colors,
         )
-        
-        # For now, return success
-        # TODO: Implement export service to return actual image
-        return {
-            "status": "success",
-            "message": "Poster generated successfully",
-            "poster_id": "temp_id"  # TODO: Generate unique ID
-        }
-        
+
+        # Save poster to memory store
+        poster_id = str(uuid.uuid4())
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=300, bbox_inches="tight", pad_inches=0.05)
+        buf.seek(0)
+        POSTER_STORE[poster_id] = buf.getvalue()
+        buf.close()
+
+        return PosterResponse(
+            status="success",
+            message="Poster generated successfully",
+            poster_id=poster_id,
+            download_url=f"{app_config.api_prefix}/posters/{poster_id}/download"
+        )
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error generating poster: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.get(f"{app_config.api_prefix}/posters/{{poster_id}}/download")
+async def download_poster(
+    poster_id: str,
+    format: str = Query("png", regex="^(png|svg|pdf)$")
+):
+    """Download a generated poster."""
+    if poster_id not in POSTER_STORE:
+        raise HTTPException(status_code=404, detail="Poster not found")
+
+    content_type = {
+        "png": "image/png",
+        "svg": "image/svg+xml",
+        "pdf": "application/pdf",
+    }
+
+    return FileResponse(
+        io.BytesIO(POSTER_STORE[poster_id]),
+        media_type=content_type.get(format, "image/png"),
+        filename=f"poster.{format}"
+    )
+
+
+@app.get(f"{app_config.api_prefix}/themes", response_model=List[ThemeResponse])
+async def list_themes(registry: ServiceRegistry = Depends(get_service_registry)):
+    """List all available themes."""
+    generator_service = registry.get("generator")
+    if not generator_service:
+        return []
+
+    try:
+        # Import themes from modules
+        from modules.poster_generator import PosterGenerator
+        from modules.config import THEMES_DIR
+        
+        themes = []
+        for theme_file in THEMES_DIR.glob("*.json"):
+            try:
+                import json
+                with open(theme_file, "r") as f:
+                    theme_data = json.load(f)
+                    themes.append(ThemeResponse(
+                        name=theme_data.get("name", theme_file.stem),
+                        description=theme_data.get("description", ""),
+                        colors={k: v for k, v in theme_data.items() if k not in ["name", "description", "custom"]}
+                    ))
+            except Exception:
+                continue
+        
+        return themes
+    except Exception as e:
+        logger.error(f"Error listing themes: {e}")
+        return []
+
+
+@app.post(f"{app_config.api_prefix}/themes", response_model=ThemeResponse)
+async def save_theme(
+    theme: Dict[str, Any],
+    registry: ServiceRegistry = Depends(get_service_registry)
+):
+    """Save a custom theme."""
+    try:
+        import json
+        from modules.config import THEMES_DIR
+        
+        name = theme.get("name", "custom_theme")
+        colors = theme.get("colors", {})
+        
+        theme_data = {
+            "name": name,
+            "description": "Custom theme",
+            "custom": True,
+            **colors
+        }
+        
+        theme_path = THEMES_DIR / f"{name}.json"
+        with open(theme_path, "w") as f:
+            json.dump(theme_data, f, indent=2)
+        
+        return ThemeResponse(
+            name=name,
+            description="Custom theme",
+            colors=colors
+        )
+    except Exception as e:
+        logger.error(f"Error saving theme: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save theme")
+
+
+@app.get(f"{app_config.api_prefix}/geocode/search", response_model=List[GeocodeSearchResult])
+async def search_geocode(
+    q: str = Query(..., description="Search query"),
+    registry: ServiceRegistry = Depends(get_service_registry)
+):
+    """Search for locations."""
+    geocoding_service = registry.get("geocoding")
+    if not geocoding_service:
+        raise HTTPException(status_code=503, detail="Geocoding service not available")
+
+    try:
+        result = await geocoding_service.geocode(q, use_cache=True)
+        if result is None:
+            return []
+        
+        lat, lon, display_name = result
+        return [GeocodeSearchResult(
+            name=q,
+            latitude=lat,
+            longitude=lon,
+            display_name=display_name,
+            type="locality"
+        )]
+    except Exception as e:
+        logger.error(f"Error searching geocode: {e}")
+        return []
+
+
+@app.get(f"{app_config.api_prefix}/geocode/reverse", response_model=ReverseGeocodeResult)
+async def reverse_geocode(
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+    registry: ServiceRegistry = Depends(get_service_registry)
+):
+    """Reverse geocode coordinates to address."""
+    # For now, return basic info - can be enhanced with Nominatim reverse geocoding
+    return ReverseGeocodeResult(
+        latitude=lat,
+        longitude=lon,
+        display_name=f"{lat}, {lon}",
+        address={}
+    )
 
 
 # === Service Management (Admin) ===
