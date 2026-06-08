@@ -633,6 +633,28 @@ col_input, col_preview, col_history = st.columns([1.2, 2, 0.8], gap="medium")
 # COLUMN 1: INPUT PANEL WITH TABS
 # ============================================================================
 
+# Initialize variables with defaults (in case user doesn't visit specific tabs)
+custom_city_text = ""
+custom_country_text = ""
+custom_subtitle = ""
+custom_coords_text = ""
+coords_format = "default"
+text_color = "#1A1A1A"
+paper_format = DEFAULT_PAPER_SIZE
+selected_font = DEFAULT_FONT
+show_buildings = False
+show_paths = False
+show_landscape = False
+show_waterways = False
+show_railways = False
+show_hedges = False
+show_leisure = False
+show_amenities = False
+text_x = 50
+text_y = 14
+show_country = True
+show_coords = True
+
 with col_input:
     # Main tabs for organization
     tab_theme, tab_location, tab_details = st.tabs(["🎨 Theme", "📍 Standort", "⚙️ Details"])

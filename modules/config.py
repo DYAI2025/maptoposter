@@ -6,6 +6,10 @@ Centralizes paper sizes, API keys, paths, and default settings.
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # ============================================================================
 # ENVIRONMENT & PATHS
