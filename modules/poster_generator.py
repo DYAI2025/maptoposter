@@ -731,17 +731,13 @@ class PosterGenerator:
 
     @staticmethod
     def get_layer_defaults(distance_m: int) -> dict:
-        """
-        Get default layer visibility based on zoom level.
+        """Get default layer visibility based on zoom level.
 
-        Only includes layers that have corresponding OSM tags in
-        DETAIL_LAYER_TAGS and rendering code in generate_poster().
-
-        Args:
-            distance_m: Map radius in meters
-
-        Returns:
-            Dict with layer visibility booleans
+        Thresholds (from LAYER_ZOOM_THRESHOLDS):
+          <= 2 km  : all detail layers ON
+          <= 8 km  : buildings, waterways, railways, leisure, amenities
+          <= 16 km : waterways, railways only
+          > 16 km  : regional view — all detail layers off
         """
         all_layers = {
             "buildings": False,

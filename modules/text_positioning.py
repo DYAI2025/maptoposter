@@ -216,7 +216,7 @@ def _compute_text_spacing(size_city: int, size_country: int, size_coords: int,
     scale proportionally via their pixel height.
     """
     _, paper_h = PAPER_SIZES.get(paper_size, PAPER_SIZES["A4"])
-    # Points → fraction-of-poster.  72 pt = 1 inch.
+    # PAPER_SIZES values are in inches (config.py).  72 pt = 1 inch.
     pt_to_axes = 1.0 / (paper_h * 72)
 
     # Gap = 40 % of the larger neighbour's size (visually airy, never touching)
