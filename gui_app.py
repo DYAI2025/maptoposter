@@ -34,7 +34,6 @@ from modules.config import (
     DEFAULT_DISTANCE,
     FONTS_DIR,
     POSTERS_DIR,
-    LAYER_ZOOM_THRESHOLDS,
     FONT_OPTIONS,
     DEFAULT_FONT,
     THEMES_DIR,
@@ -520,21 +519,11 @@ def add_to_history(config: dict, fig) -> None:
 
 
 def get_layer_defaults(distance_m: int) -> dict:
-    """Get default layer visibility based on zoom level."""
-    all_layers = {
-        "buildings": False, "paths": False, "landscape": False, "waterways": False,
-        "railways": False, "hedges": False, "leisure": False, "amenities": False,
-    }
+    """Get default layer visibility based on zoom level.
 
-    if distance_m <= LAYER_ZOOM_THRESHOLDS["all_on"]:
-        return {k: True for k in all_layers}
-    elif distance_m <= LAYER_ZOOM_THRESHOLDS["buildings_only"]:
-        all_layers["buildings"] = True
-        all_layers["waterways"] = True
-        all_layers["railways"] = True
-        return all_layers
-    else:
-        return all_layers
+    Delegates to PosterGenerator.get_layer_defaults for single source of truth.
+    """
+    return PosterGenerator.get_layer_defaults(distance_m)
 
 
 def parse_coordinates(coord_string: str) -> tuple[float, float] | None:
@@ -614,10 +603,19 @@ def render_theme_gallery(themes: list[str], cols_per_row: int = 4, is_custom: bo
 
 st.html(
     """
-    <div style="text-align: center; margin-bottom: 1.5rem;">
-        <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">CityMaps</h1>
-        <p style="font-size: 1rem; color: #666; font-style: italic;">
+    <div style="text-align: center; margin-bottom: 0.8rem;">
+        <h1 style="font-size: 2.5rem; margin-bottom: 0.3rem;">CityMaps</h1>
+        <p style="font-size: 1rem; color: #666; font-style: italic; margin-bottom: 0.4rem;">
             Beautiful map posters crafted from OpenStreetMap data
+        </p>
+        <p style="font-size: 0.85rem; color: #888; margin: 0;">
+            <span style="background:#f0f0f0;padding:2px 8px;border-radius:10px;margin:0 3px;">&#9312; Theme</span>
+            <span style="color:#ccc;">&rarr;</span>
+            <span style="background:#f0f0f0;padding:2px 8px;border-radius:10px;margin:0 3px;">&#9313; Standort</span>
+            <span style="color:#ccc;">&rarr;</span>
+            <span style="background:#f0f0f0;padding:2px 8px;border-radius:10px;margin:0 3px;">&#9314; Details</span>
+            <span style="color:#ccc;">&rarr;</span>
+            <span style="background:#e8f4e8;padding:2px 8px;border-radius:10px;margin:0 3px;font-weight:600;">Generieren</span>
         </p>
     </div>
     """
@@ -657,7 +655,11 @@ show_coords = True
 
 with col_input:
     # Main tabs for organization
-    tab_theme, tab_location, tab_details = st.tabs(["🎨 Theme", "📍 Standort", "⚙️ Details"])
+    tab_theme, tab_location, tab_details = st.tabs([
+        "① 🎨 Theme wählen",
+        "② 📍 Standort eingeben",
+        "③ ⚙️ Details anpassen",
+    ])
 
     # ========================================================================
     # TAB 1: THEME SELECTION
@@ -1195,16 +1197,29 @@ with col_preview:
     else:
         st.info("Konfiguriere die Einstellungen und klicke '🎨 Poster generieren'", icon="ℹ️")
 
-        with st.expander("💡 Schnellstart", expanded=True):
-            st.markdown("""
-            **1. Theme wählen** - Klicke auf ein Theme in der Galerie
-
-            **2. Standort eingeben** - Stadt/Adresse oder GPS-Koordinaten
-
-            **3. Zoom einstellen** - Von Haus (200m) bis Metropole (30km)
-
-            **4. Generieren** - Klicke den Button!
-            """)
+        st.html("""
+        <div style="background: linear-gradient(135deg, #f8f9fa, #e9ecef); padding: 1.2rem; border-radius: 12px; margin-top: 0.5rem;">
+            <h4 style="margin-top:0; color:#333;">So geht's:</h4>
+            <div style="display:flex; flex-direction:column; gap:0.6rem;">
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                    <span style="background:#1a3a52; color:white; border-radius:50%; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0;">1</span>
+                    <span><strong>Theme wählen</strong> — Klicke links auf ein Design aus der Galerie</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                    <span style="background:#1a3a52; color:white; border-radius:50%; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0;">2</span>
+                    <span><strong>Standort eingeben</strong> — Stadt, Adresse oder GPS-Koordinaten</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                    <span style="background:#1a3a52; color:white; border-radius:50%; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0;">3</span>
+                    <span><strong>Details anpassen</strong> — Papierformat, Schrift, Layer (optional)</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                    <span style="background:#2e7d32; color:white; border-radius:50%; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0;">4</span>
+                    <span><strong>Generieren</strong> — Klicke den grünen Button unten links</span>
+                </div>
+            </div>
+        </div>
+        """)
 
 # ============================================================================
 # COLUMN 3: HISTORY & INFO

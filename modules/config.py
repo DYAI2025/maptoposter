@@ -209,9 +209,10 @@ ZOOM_SCALE_FACTORS = [
 
 # Zoom thresholds for automatic layer defaults
 LAYER_ZOOM_THRESHOLDS = {
-    "all_on": 2000,      # <= 2km: all detail layers ON
-    "buildings_only": 8000,  # <= 8km: only buildings ON
-    # > 8km: all detail layers OFF
+    "all_on": 2000,          # <= 2km: all detail layers ON
+    "buildings_only": 8000,  # <= 8km: buildings + waterways + railways ON
+    "water_rail_only": 16000,  # <= 16km: waterways + railways + airports ON
+    # > 16km: only major water and transport features
 }
 
 # OSM tags for detail layers
