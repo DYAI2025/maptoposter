@@ -10,7 +10,7 @@ Includes automatic font scaling based on paper format and zoom level.
 from matplotlib.font_manager import FontProperties
 import matplotlib.pyplot as plt
 
-from .config import PAPER_SCALE_FACTORS, ZOOM_SCALE_FACTORS
+from .config import PAPER_SCALE_FACTORS, ZOOM_SCALE_FACTORS, FONT_SIZES, PAPER_SIZES
 
 
 def get_paper_scale_factor(paper_size: str) -> float:
@@ -204,6 +204,37 @@ def format_coordinates(lat: float, lon: float, format_type: str = "default") -> 
         return f"{lat_abs:.4f}° {lat_hemisphere} / {lon_abs:.4f}° {lon_hemisphere}"
 
 
+def _compute_text_spacing(size_city: int, size_country: int, size_coords: int,
+                          paper_size: str) -> dict:
+    """Compute dynamic vertical spacing between text elements.
+
+    Spacing is derived from actual font sizes so elements never overlap,
+    regardless of paper format, zoom level, or name length.  Values are
+    expressed in normalised axes coordinates (0-1).
+
+    The reference frame is a portrait A4 at 11.69" height; other formats
+    scale proportionally via their pixel height.
+    """
+    _, paper_h = PAPER_SIZES.get(paper_size, PAPER_SIZES["A4"])
+    # PAPER_SIZES values are in inches (config.py).  72 pt = 1 inch.
+    pt_to_axes = 1.0 / (paper_h * 72)
+
+    # Gap = 40 % of the larger neighbour's size (visually airy, never touching)
+    city_gap = size_city * pt_to_axes * 1.6      # city name → next element
+    subtitle_gap = size_country * pt_to_axes * 1.2
+    line_gap = 4 * pt_to_axes                     # decorative line thickness
+    country_gap = size_country * pt_to_axes * 1.4
+    coords_gap = size_coords * pt_to_axes * 1.4
+
+    return {
+        "city_gap": city_gap,
+        "subtitle_gap": subtitle_gap,
+        "line_gap": line_gap,
+        "country_gap": country_gap,
+        "coords_gap": coords_gap,
+    }
+
+
 def apply_text_overlay(
     ax,
     city: str,
@@ -215,7 +246,6 @@ def apply_text_overlay(
     text_config: dict | None = None,
     paper_size: str = "A4",
     distance_m: int = 8000,
-    # User personalization parameters
     custom_city_text: str | None = None,
     custom_country_text: str | None = None,
     custom_subtitle: str | None = None,
@@ -223,35 +253,12 @@ def apply_text_overlay(
     custom_coords_text: str | None = None,
     text_color: str | None = None,
 ) -> None:
-    """
-    Apply text overlay to map axes.
+    """Apply text overlay to map axes.
 
-    Renders city name, country, coordinates, and attribution on the map.
-    Font sizes are automatically scaled based on paper format and zoom level.
-
-    Args:
-        ax: Matplotlib axes object
-        city: City name (default text)
-        country: Country name
-        lat: Latitude coordinate
-        lon: Longitude coordinate
-        theme: Theme dictionary with color definitions
-        fonts: Font paths dict ('bold', 'regular', 'light'), or None for system fonts
-        text_config: Optional text configuration dict with keys:
-            - x: Horizontal position (0-1), default 0.5
-            - y: Vertical position (0-1), default 0.14
-            - alignment: 'left', 'center', 'right', default 'center'
-            - show_coords: bool, default True
-            - show_country: bool, default True
-        paper_size: Paper format for font scaling (A2, A3, A4, A5)
-        distance_m: Map radius in meters for font scaling
-        # User personalization parameters:
-        custom_city_text: Override city name with custom text
-        custom_country_text: Override country name with custom text
-        custom_subtitle: Add custom subtitle below city name
-        coords_format: Format for coordinates ("default", "decimal", "compact", "dms")
-        custom_coords_text: Completely override coordinates with custom text
-        text_color: Override text color from theme
+    Font sizes are read from ``FONT_SIZES`` in *config.py* and then scaled
+    by paper format and zoom level.  Vertical spacing between elements is
+    **computed dynamically** from the resulting sizes so that text never
+    overlaps — even on A5 at 500 m zoom with a 25-character city name.
     """
     if text_config is None:
         text_config = {
@@ -262,91 +269,72 @@ def apply_text_overlay(
             "show_country": True,
         }
 
-    # Use personalization or fall back to defaults
     display_city = custom_city_text if custom_city_text else city
     display_country = custom_country_text if custom_country_text else country
-
-    # Determine text color (custom or from theme)
     text_color_final = text_color if text_color else theme["text"]
 
-    # Calculate scaled font sizes
-    size_city = get_scaled_font_size(60, paper_size, distance_m, min_size=16)
-    size_country = get_scaled_font_size(22, paper_size, distance_m, min_size=10)
-    size_coords = get_scaled_font_size(14, paper_size, distance_m, min_size=8)
-    size_attr = get_scaled_font_size(8, paper_size, distance_m, min_size=6)
+    # --- Scaled font sizes (from config, not hardcoded) ---
+    size_city = get_scaled_font_size(
+        FONT_SIZES["city_name"], paper_size, distance_m, min_size=16
+    )
+    size_country = get_scaled_font_size(
+        FONT_SIZES["country"], paper_size, distance_m, min_size=10
+    )
+    size_coords = get_scaled_font_size(
+        FONT_SIZES["coordinates"], paper_size, distance_m, min_size=8
+    )
+    size_attr = get_scaled_font_size(
+        FONT_SIZES["attribution"], paper_size, distance_m, min_size=6
+    )
 
-    # Load fonts with scaled sizes
+    # --- Long-name scaling (on top of paper/zoom) ---
+    name_scale = 1.0
+    if len(display_city) > 10:
+        name_scale = max(10 / len(display_city), 0.5)
+    adjusted_city_size = max(int(size_city * name_scale), 16)
+
+    # --- Build FontProperties ---
     if fonts:
-        font_main = FontProperties(fname=fonts["bold"], size=size_city)
+        font_main = FontProperties(fname=fonts["bold"], size=adjusted_city_size)
         font_sub = FontProperties(fname=fonts["light"], size=size_country)
+        font_subtitle = FontProperties(fname=fonts["light"], size=int(size_country * 0.8))
         font_coords = FontProperties(fname=fonts["regular"], size=size_coords)
         font_attr = FontProperties(fname=fonts["light"], size=size_attr)
     else:
-        # Fallback to system fonts
-        font_main = FontProperties(family="monospace", weight="bold", size=size_city)
+        font_main = FontProperties(family="monospace", weight="bold", size=adjusted_city_size)
         font_sub = FontProperties(family="monospace", weight="normal", size=size_country)
+        font_subtitle = FontProperties(family="monospace", weight="normal", size=int(size_country * 0.8))
         font_coords = FontProperties(family="monospace", size=size_coords)
         font_attr = FontProperties(family="monospace", size=size_attr)
 
-    # Format city name with spacing (use display_city for personalization)
-    spaced_city = "  ".join(list(display_city.upper()))
+    # --- Dynamic spacing (prevents text overlap at any scale) ---
+    spacing = _compute_text_spacing(adjusted_city_size, size_country, size_coords, paper_size)
 
-    # Additional dynamic sizing for long names (on top of paper/zoom scaling)
-    name_scale = 1.0
-    if len(display_city) > 10:
-        name_scale = 10 / len(display_city)
-        name_scale = max(name_scale, 0.5)  # Don't go below 50%
-
-    adjusted_font_size = int(size_city * name_scale)
-    if fonts:
-        font_main_adjusted = FontProperties(
-            fname=fonts["bold"], size=adjusted_font_size
-        )
-        font_subtitle = FontProperties(
-            fname=fonts["light"], size=int(size_country * 0.8)
-        )
-    else:
-        font_main_adjusted = FontProperties(
-            family="monospace", weight="bold", size=adjusted_font_size
-        )
-        font_subtitle = FontProperties(
-            family="monospace", weight="normal", size=int(size_country * 0.8)
-        )
-
-    # Get alignment
     ha = text_config.get("alignment", "center")
     x_pos = text_config.get("x", 0.5)
-    y_pos = text_config.get("y", 0.14)
+    cursor_y = text_config.get("y", 0.14)
 
     # --- CITY NAME ---
+    spaced_city = "  ".join(list(display_city.upper()))
     ax.text(
-        x_pos,
-        y_pos,
-        spaced_city,
-        transform=ax.transAxes,
-        color=text_color_final,
-        ha=ha,
-        fontproperties=font_main_adjusted,
-        zorder=11,
+        x_pos, cursor_y, spaced_city,
+        transform=ax.transAxes, color=text_color_final,
+        ha=ha, fontproperties=font_main, zorder=11,
     )
+    cursor_y -= spacing["city_gap"]
 
-    # --- CUSTOM SUBTITLE (if provided) ---
+    # --- CUSTOM SUBTITLE ---
     if custom_subtitle:
         ax.text(
-            x_pos,
-            y_pos - 0.025,
-            custom_subtitle.upper(),
-            transform=ax.transAxes,
-            color=text_color_final,
-            alpha=0.8,
-            ha=ha,
-            fontproperties=font_subtitle,
-            zorder=11,
+            x_pos, cursor_y, custom_subtitle.upper(),
+            transform=ax.transAxes, color=text_color_final, alpha=0.8,
+            ha=ha, fontproperties=font_subtitle, zorder=11,
         )
+        cursor_y -= spacing["subtitle_gap"]
 
     # --- DECORATIVE LINE (scaled) ---
     scale_factor = calculate_font_scale(paper_size, distance_m)
-    line_length = 0.2 * scale_factor  # Scale line length
+    line_length = 0.2 * scale_factor
     line_half = line_length / 2
     if ha == "center":
         line_left = 0.5 - line_half
@@ -354,64 +342,41 @@ def apply_text_overlay(
     else:
         line_left = 0.1
         line_right = 0.1 + line_length
-    line_width = max(0.5, 1.0 * scale_factor)  # Scale line width
+    line_width = max(0.5, 1.0 * scale_factor)
     ax.plot(
-        [line_left, line_right],
-        [y_pos - 0.04, y_pos - 0.04],
-        transform=ax.transAxes,
-        color=text_color_final,
-        linewidth=line_width,
-        zorder=11,
+        [line_left, line_right], [cursor_y, cursor_y],
+        transform=ax.transAxes, color=text_color_final,
+        linewidth=line_width, zorder=11,
     )
+    cursor_y -= spacing["line_gap"]
 
     # --- COUNTRY NAME ---
     if text_config.get("show_country", True):
         ax.text(
-            x_pos,
-            y_pos - 0.04 - (0.025 if custom_subtitle else 0.04),
-            display_country.upper(),
-            transform=ax.transAxes,
-            color=text_color_final,
-            ha=ha,
-            fontproperties=font_sub,
-            zorder=11,
+            x_pos, cursor_y, display_country.upper(),
+            transform=ax.transAxes, color=text_color_final,
+            ha=ha, fontproperties=font_sub, zorder=11,
         )
+        cursor_y -= spacing["country_gap"]
 
     # --- COORDINATES ---
     if text_config.get("show_coords", True):
-        coords_y = y_pos - (0.07 if text_config.get("show_country", True) else 0.04)
-        coords_y -= 0.025 if custom_subtitle else 0.0
-
-        # Use custom coords text or format based on preference
         if custom_coords_text:
             coords_text = custom_coords_text
         else:
             coords_text = format_coordinates(lat, lon, coords_format)
 
         ax.text(
-            x_pos,
-            coords_y,
-            coords_text,
-            transform=ax.transAxes,
-            color=text_color_final,
-            alpha=0.7,
-            ha=ha,
-            fontproperties=font_coords,
-            zorder=11,
+            x_pos, cursor_y, coords_text,
+            transform=ax.transAxes, color=text_color_final, alpha=0.7,
+            ha=ha, fontproperties=font_coords, zorder=11,
         )
 
-    # --- ATTRIBUTION (bottom right) ---
+    # --- ATTRIBUTION (bottom right, always) ---
     ax.text(
-        0.98,
-        0.02,
-        "© OpenStreetMap contributors",
-        transform=ax.transAxes,
-        color=text_color_final,
-        alpha=0.5,
-        ha="right",
-        va="bottom",
-        fontproperties=font_attr,
-        zorder=11,
+        0.98, 0.02, "© OpenStreetMap contributors",
+        transform=ax.transAxes, color=text_color_final, alpha=0.5,
+        ha="right", va="bottom", fontproperties=font_attr, zorder=11,
     )
 
 

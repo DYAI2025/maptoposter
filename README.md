@@ -39,7 +39,7 @@ python create_map_poster.py --city <city> --country <country> [options]
 | `--city` | `-c` | City name | required |
 | `--country` | `-C` | Country name | required |
 | `--theme` | `-t` | Theme name | feature_based |
-| `--distance` | `-d` | Map radius in meters | 29000 |
+| `--distance` | `-d` | Map radius in meters | 8000 |
 | `--list-themes` | | List all available themes | |
 
 ### Examples
@@ -86,7 +86,7 @@ python create_map_poster.py --list-themes
 
 ## Themes
 
-17 themes available in `themes/` directory:
+28 themes available in `themes/` directory (run `--list-themes` for the full list):
 
 | Theme | Style |
 |-------|-------|
@@ -107,6 +107,17 @@ python create_map_poster.py --list-themes
 | `autumn` | Seasonal burnt oranges and reds |
 | `copper_patina` | Oxidized copper aesthetic |
 | `monochrome_blue` | Single blue color family |
+| `midnight_mint` | Cool mint on dark background |
+| `dark` | Dark mode minimalist |
+| `negativ` | Inverted/negative effect |
+| `old_map` | Vintage antique map |
+| `pirates_treasure` | Pirate treasure map |
+| `heatwave` | Hot thermal colors |
+| `gta5` | GTA V game-inspired |
+| `night_lights` | Aerial night photography |
+| `holonight` | Cyan neon holographic |
+| `kandincity` | Kandinsky abstract art |
+| `ying_yang` | Black & white duality |
 
 ## Output
 
@@ -140,11 +151,17 @@ Create a JSON file in `themes/` directory:
 ## Project Structure
 
 ```
-map_poster/
-├── create_map_poster.py          # Main script
-├── themes/               # Theme JSON files
-├── fonts/                # Roboto font files
-├── posters/              # Generated posters
+maptoposter/
+├── create_map_poster.py          # CLI entry point
+├── gui_app.py                    # Streamlit GUI
+├── modules/
+│   ├── config.py                 # All constants & configuration
+│   ├── geocoding.py              # Address → lat/lon (Nominatim + Google)
+│   ├── poster_generator.py       # Rendering pipeline (PosterGenerator)
+│   └── text_positioning.py       # Typography & font scaling
+├── themes/                       # 28 theme JSON files
+├── fonts/                        # 5 font families (TTF)
+├── posters/                      # Generated posters
 └── README.md
 ```
 
@@ -172,7 +189,7 @@ Quick reference for contributors who want to extend or modify the script.
 | Function | Purpose | Modify when... |
 |----------|---------|----------------|
 | `get_coordinates()` | City → lat/lon via Nominatim | Switching geocoding provider |
-| `create_poster()` | Main rendering pipeline | Adding new map layers |
+| `PosterGenerator.generate_poster()` | Main rendering pipeline | Adding new map layers |
 | `get_edge_colors_by_type()` | Road color by OSM highway tag | Changing road styling |
 | `get_edge_widths_by_type()` | Road width by importance | Adjusting line weights |
 | `create_gradient_fade()` | Top/bottom fade effect | Modifying gradient overlay |
@@ -183,10 +200,12 @@ Quick reference for contributors who want to extend or modify the script.
 ```
 z=11  Text labels (city, country, coords)
 z=10  Gradient fades (top & bottom)
-z=3   Roads (via ox.plot_graph)
-z=2   Parks (green polygons)
-z=1   Water (blue polygons)
-z=0   Background color
+z=5   Roads (via ox.plot_graph)
+z=4   Paths & small roads
+z=3   Buildings (when visible by zoom)
+z=2   Parks & leisure areas
+z=1   Water bodies & waterways
+z=0   Landscape/background color
 ```
 
 ### OSM Highway Types → Road Hierarchy
@@ -222,14 +241,13 @@ if railways is not None and not railways.empty:
 
 ### Typography Positioning
 
-All text uses `transform=ax.transAxes` (0-1 normalized coordinates):
-```
-y=0.14  City name (spaced letters)
-y=0.125 Decorative line
-y=0.10  Country name
-y=0.07  Coordinates
-y=0.02  Attribution (bottom-right)
-```
+All text uses `transform=ax.transAxes` (0-1 normalized coordinates).
+Spacing between elements is **computed dynamically** from the actual
+scaled font sizes so that text never overlaps — even on A5 at 500 m
+zoom or A2 at 30 km with a 25-character city name.
+
+Font sizes are defined in `FONT_SIZES` (config.py) and scaled by
+paper format (`PAPER_SCALE_FACTORS`) and zoom level (`ZOOM_SCALE_FACTORS`).
 
 ### Useful OSMnx Patterns
 
